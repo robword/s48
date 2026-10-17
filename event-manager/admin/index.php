@@ -46,7 +46,11 @@ $csrf = s48_csrf_token();
   .pill.open { background: var(--s48-good); color: #062; }
   .pill.closed { background: var(--s48-bad); color: #400; }
   main { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 20px; padding: 20px; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+    /* On phones, once voting has started the controls and live results come first. */
+    body[data-status=open] .results, body[data-status=closed] .results { order: -1; }
+  }
   section { background: var(--s48-surface); border-radius: 14px; padding: 16px; }
   h2 { font-family: var(--s48-font-heading); font-weight: 700; font-size: 16px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--s48-muted); }
   button, .btn { font: inherit; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 700; cursor: pointer; background: var(--s48-surface-2); color: var(--s48-text); }
@@ -132,7 +136,7 @@ $csrf = s48_csrf_token();
       </details>
     </section>
 
-    <section>
+    <section class="results">
       <div class="controls">
         <button class="primary big" id="btnStart">Start voting</button>
         <button class="big" id="btnClose">Close voting</button>
@@ -248,6 +252,7 @@ $csrf = s48_csrf_token();
 
   function render() {
     var st = data.status, r = data.results;
+    document.body.setAttribute('data-status', st);
     $('statusPill').textContent = st === 'setup' ? 'Not started' : st;
     $('statusPill').className = 'pill ' + st;
     $('btnStart').style.display = st === 'setup' ? '' : 'none';

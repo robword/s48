@@ -64,7 +64,7 @@ try {
   <header>
     <div class="s48-wordmark" style="font-size:20px">startup<span>48</span></div>
     <h1>Vote for your favorite ideas</h1>
-    <p>You have <strong>3 votes</strong>. Put them all on one idea or spread them out. You can change your votes until voting closes.</p>
+    <p id="intro">You have <strong>3 votes</strong>. Put them all on one idea or spread them out.<span id="changeNote" class="hidden"> You can change your votes until voting closes.</span></p>
   </header>
 
   <div id="waiting" class="panel hidden">
@@ -115,6 +115,9 @@ try {
     var ids = ['waiting', 'closed', 'error', 'voting'];
     for (var i = 0; i < ids.length; i++) { $(ids[i]).className = $(ids[i]).className.replace(/\s*hidden/g, '') + (ids[i] === which ? '' : ' hidden'); }
     $('bar').className = which === 'voting' ? 'bar' : 'bar hidden';
+    // Instructions only make sense before/while voting; the re-vote note only while voting.
+    $('intro').className = which === 'voting' || which === 'waiting' ? '' : 'hidden';
+    $('changeNote').className = which === 'voting' ? '' : 'hidden';
   }
 
   function setMsg(text, kind) {
