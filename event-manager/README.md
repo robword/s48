@@ -14,7 +14,21 @@ no CDN. Runs on DreamHost (or any Apache + PHP host).
 | `inc/` | Shared PHP (not web-accessible) |
 | `bin/` | CLI scripts (not web-accessible) |
 | `data/` | Runtime storage, created automatically, git-ignored, not web-accessible |
-| `assets/theme.css` | **Placeholder** brand palette, one place to swap colors/fonts |
+| `assets/theme.css` | Brand palette and fonts from startup48.co, all in one place |
+| `assets/fonts/`, `assets/logo-mark*.svg` | Self-hosted fonts; hexagon logo mark (color and white outline) |
+
+## Look and feel
+
+Matched to startup48.co: orange `#ee512b`, teal `#369cba` and slate `#4c778b` (the site's three tiles),
+with navy `#204761` and cream `#faf1ed`. Fonts are Poppins (headlines), Raleway (section titles) and Ubuntu (body).
+They are self-hosted in `assets/fonts/` (Latin subsets; Poppins and Raleway under the SIL Open Font
+License, Ubuntu under the Ubuntu Font Licence), so nothing loads from a CDN on venue Wi-Fi.
+
+- **Slides and operator console:** dark navy. The title and closing slides use the site's cream hero and the three-color tile band.
+- **Phone voting page:** light (cream), like the website.
+- **Logo:** `logo-mark.svg` is recreated from the hexagon PNG; `logo-mark-outline.svg` is the white version for dark backgrounds,
+  as in the site header. The STARTUP48 lettering is set in Poppins, an approximation of the official wordmark.
+  Drop in official SVGs with the same names to replace them.
 
 ## Pitch timer
 

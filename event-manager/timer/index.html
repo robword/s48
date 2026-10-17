@@ -11,28 +11,36 @@
   URL presets: ?d=300&w=60,20&label=Pitch  (seconds)
 -->
 <style>
+  /* Brand fonts come from ../assets/fonts when deployed with the other tools;
+     if missing (timer copied on its own) the system fonts below take over. */
+  @font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("../assets/fonts/poppins-700.woff2") format("woff2"); }
+  @font-face { font-family: "Poppins"; font-weight: 800; font-display: swap; src: url("../assets/fonts/poppins-800.woff2") format("woff2"); }
+  @font-face { font-family: "Raleway"; font-weight: 100 900; font-display: swap; src: url("../assets/fonts/raleway-variable.woff2") format("woff2"); }
+  @font-face { font-family: "Ubuntu"; font-weight: 500; font-display: swap; src: url("../assets/fonts/ubuntu-500.woff2") format("woff2"); }
   html, body { margin: 0; height: 100%; }
   body {
-    background: #0f1222; color: #f5f6fa;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #1b3c52; color: #ffffff;
+    font-family: "Ubuntu", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     overflow: hidden; -webkit-user-select: none; user-select: none;
     -webkit-transition: background-color .4s; transition: background-color .4s;
   }
-  body.warn1 { background: #8a5a00; }
-  body.warn2 { background: #a3201a; }
-  body.over { background: #6e0f0f; }
-  body.over.flash { background: #b3121b; }
+  /* navy -> amber (first warning) -> brand orange (last warning) -> red (overtime) */
+  body.warn1 { background: #b07a0c; }
+  body.warn2 { background: #ee512b; }
+  body.over { background: #9e1f14; }
+  body.over.flash { background: #d0301d; }
   #app { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
-  #label { position: absolute; top: 2vh; left: 0; right: 0; text-align: center; font-size: 4vh; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
-  #brand { position: absolute; top: 2vh; left: 2vw; font-family: "Arial Black", Arial, sans-serif; font-weight: 900; font-size: 3vh; }
-  #brand span { color: #ff5a36; }
-  body.warn1 #brand span, body.warn2 #brand span, body.over #brand span { color: #fff; }
+  #label { position: absolute; top: 2vh; left: 0; right: 0; text-align: center; font-family: "Raleway", Arial, sans-serif; font-size: 4vh; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+  #brand { position: absolute; top: 2vh; left: 2vw; font-family: "Poppins", "Arial Black", Arial, sans-serif; font-weight: 800; font-size: 3vh; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+  #brand .mark { width: 1.3em; height: 1.3em; vertical-align: -0.32em; margin-right: .3em; }
   #time {
     position: absolute; left: 0; right: 0; top: 50%; text-align: center; line-height: 1;
-    font-weight: 800; white-space: nowrap;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700; white-space: nowrap;
+    font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; font-feature-settings: "tnum";
   }
+  /* Fixed-width slot per digit: Poppins digits are proportional, so the time would shift each second. */
+  #time .d { display: inline-block; width: .68em; text-align: center; }
   #next { position: absolute; left: 0; right: 0; bottom: 22vh; text-align: center; font-size: 3.2vh; opacity: .7; }
   #controls {
     position: absolute; left: 0; right: 0; bottom: 0; padding: 1.5vh 2vw 2vh; text-align: center;
@@ -44,22 +52,23 @@
   button, input { font: inherit; }
   button {
     margin: .4vh .3vw; padding: 1.2vh 1.6vw; font-size: 2.3vh; font-weight: 700;
-    color: #f5f6fa; background: #262c4a; border: 2px solid transparent; border-radius: 8px; cursor: pointer;
+    color: #ffffff; background: #2f617d; border: 2px solid transparent; border-radius: 8px; cursor: pointer;
   }
-  button.on { border-color: #ff5a36; }
-  button.primary { background: #ff5a36; color: #fff; min-width: 12vw; }
+  button.on { border-color: #ffffff; }
+  button.primary { background: #ee512b; color: #fff; min-width: 12vw; }
+  body.warn2 button.primary { background: #ffffff; color: #ee512b; }
   .group { display: inline-block; margin: 0 1vw; vertical-align: middle; }
   #custom { display: none; margin-top: 1vh; font-size: 2.2vh; }
   #custom.open { display: block; }
-  #custom input { width: 7em; padding: .5vh .6vw; font-size: 2.2vh; border-radius: 6px; border: 1px solid #2f365a; background: #0f1222; color: #f5f6fa; }
+  #custom input { width: 7em; padding: .5vh .6vw; font-size: 2.2vh; border-radius: 6px; border: 1px solid #3a6c88; background: #1b3c52; color: #ffffff; }
   #custom input.wide { width: 11em; }
   #hint { font-size: 1.6vh; opacity: .55; margin-top: .6vh; }
-  #audioNote { position: absolute; top: 8vh; left: 0; right: 0; text-align: center; font-size: 2.2vh; color: #ffc23a; display: none; }
+  #audioNote { position: absolute; top: 8vh; left: 0; right: 0; text-align: center; font-size: 2.2vh; color: #ffd27a; display: none; }
 </style>
 </head>
 <body>
 <div id="app">
-  <div id="brand">startup<span>48</span></div>
+  <div id="brand"><svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><polygon points="50.00,4.00 89.84,27.00 89.84,73.00 50.00,96.00 10.16,73.00 10.16,27.00"/><line x1="50" y1="50" x2="50.00" y2="4.00"/><line x1="50" y1="50" x2="89.84" y2="27.00"/><line x1="50" y1="50" x2="89.84" y2="73.00"/><line x1="50" y1="50" x2="50.00" y2="96.00"/><line x1="50" y1="50" x2="10.16" y2="73.00"/><line x1="50" y1="50" x2="10.16" y2="27.00"/></g></svg>startup48</div>
   <div id="label">Pitch</div>
   <div id="audioNote">Click anywhere or press a key to enable sound</div>
   <div id="time">5:00</div>
@@ -210,6 +219,18 @@
     timeEl.style.marginTop = (-Math.floor(size / 2) - (body.className.indexOf('hide-controls') !== -1 ? 0 : h * 0.06)) + 'px';
   }
 
+  function setTime(text) {
+    if (timeEl.getAttribute('data-t') === text) { return; }
+    timeEl.setAttribute('data-t', text);
+    var html = '';
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      html += /[0-9]/.test(ch) ? '<span class="d">' + ch + '</span>' : ch;
+    }
+    timeEl.innerHTML = html;
+    fitText();
+  }
+
   function setPhase(ph) {
     var keep = (' ' + body.className + ' ').indexOf(' hide-controls ') !== -1 ? ' hide-controls' : '';
     body.className = (ph + keep).replace(/^\s+/, '');
@@ -230,7 +251,7 @@
       phase = 'over' + ((running && Math.floor(-ms / 500) % 2 === 0) ? ' flash' : '');
       nextText = 'Time is up';
     }
-    if (timeEl.textContent !== text) { timeEl.textContent = text; fitText(); }
+    setTime(text);
     $('next').textContent = nextText;
     setPhase(phase);
   }

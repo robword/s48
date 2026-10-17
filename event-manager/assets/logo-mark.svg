@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="startup48">
+  <!-- Recreated from the startup48 hexagon mark. Replace with the official file when available. -->
+  <mask id="gaps">
+    <rect width="100" height="100" fill="#fff"/>
+    <g stroke="#000" stroke-width="2.6" stroke-linecap="round">
+    <line x1="50" y1="50" x2="50.00" y2="4.00"/>
+    <line x1="50" y1="50" x2="89.84" y2="27.00"/>
+    <line x1="50" y1="50" x2="89.84" y2="73.00"/>
+    <line x1="50" y1="50" x2="50.00" y2="96.00"/>
+    <line x1="50" y1="50" x2="10.16" y2="73.00"/>
+    <line x1="50" y1="50" x2="10.16" y2="27.00"/>
+    </g>
+  </mask>
+  <g mask="url(#gaps)">
+  <path fill="#569ab7" d="M50.00 50.00 L10.16 27.00 L50.00 4.00Z"/>
+  <path fill="#569ab7" d="M50.00 50.00 L50.00 4.00 L89.84 27.00Z"/>
+  <path fill="#204761" d="M50.00 50.00 L89.84 27.00 L89.84 73.00Z"/>
+  <path fill="#204761" d="M50.00 50.00 L89.84 73.00 L50.00 96.00Z"/>
+  <path fill="#dd5c3a" d="M50.00 50.00 L50.00 96.00 L10.16 73.00Z"/>
+  <path fill="#dd5c3a" d="M50.00 50.00 L10.16 73.00 L10.16 27.00Z"/>
+  </g>
+</svg>

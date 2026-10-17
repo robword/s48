@@ -20,22 +20,23 @@ try {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1222">
+<meta name="theme-color" content="#faf1ed">
 <title>startup48 · Vote</title>
 <link rel="stylesheet" href="../assets/theme.css">
 <style>
+  html { background: var(--s48-cream); }
   body { margin: 0; background: var(--s48-bg); color: var(--s48-text); font-family: var(--s48-font); -webkit-text-size-adjust: 100%; }
   .wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 120px; }
-  header h1 { font-size: 22px; margin: 4px 0 4px; }
+  header h1 { font-family: var(--s48-font-display); font-weight: 700; font-size: 24px; line-height: 1.2; margin: 12px 0 6px; }
   header p { margin: 0 0 12px; color: var(--s48-muted); font-size: 15px; line-height: 1.4; }
   .bank { position: sticky; top: 0; z-index: 5; background: var(--s48-bg); padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--s48-line); }
   .dots { display: flex; gap: 6px; }
   .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--s48-accent); }
   .dot.on { background: var(--s48-accent); }
-  .bank-label { font-weight: 700; font-size: 16px; }
+  .bank-label { font-family: var(--s48-font-display); font-weight: 700; font-size: 17px; }
   .filter { width: 100%; box-sizing: border-box; margin: 12px 0 4px; padding: 12px 14px; font-size: 16px; border-radius: 10px; border: 1px solid var(--s48-line); background: var(--s48-surface); color: var(--s48-text); }
   ul { list-style: none; margin: 8px 0 0; padding: 0; }
-  li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 8px 0; background: var(--s48-surface); border-radius: 12px; border: 2px solid transparent; }
+  li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 8px 0; background: var(--s48-surface); border-radius: 12px; border: 2px solid var(--s48-line); }
   li.has { border-color: var(--s48-accent); }
   .num { color: var(--s48-muted); font-size: 14px; min-width: 26px; }
   .name { flex: 1; font-size: 17px; line-height: 1.3; word-break: break-word; }
@@ -43,22 +44,22 @@ try {
   .ctl button { width: 44px; height: 44px; border-radius: 50%; border: 0; font-size: 24px; font-weight: 700; line-height: 1; background: var(--s48-surface-2); color: var(--s48-text); touch-action: manipulation; }
   .ctl button.plus { background: var(--s48-accent); color: var(--s48-on-accent); }
   .ctl button:disabled { opacity: .3; }
-  .count { min-width: 22px; text-align: center; font-size: 20px; font-weight: 800; }
+  .count { min-width: 22px; text-align: center; font-family: var(--s48-font-display); font-size: 20px; font-weight: 700; }
   .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--s48-bg); border-top: 1px solid var(--s48-line); }
   .bar .inner { max-width: 560px; margin: 0 auto; }
-  .submit { width: 100%; padding: 16px; font-size: 18px; font-weight: 800; border: 0; border-radius: 12px; background: var(--s48-accent); color: var(--s48-on-accent); }
+  .submit { width: 100%; padding: 16px; font-family: var(--s48-font-display); font-size: 18px; font-weight: 700; border: 0; border-radius: 12px; background: var(--s48-accent); color: var(--s48-on-accent); }
   .submit:disabled { opacity: .4; }
   .submit.done, .submit.done:disabled { opacity: 1; background: transparent; color: var(--s48-good); box-shadow: inset 0 0 0 2px var(--s48-good); }
   .msg { text-align: center; font-size: 14px; min-height: 18px; margin-bottom: 8px; color: var(--s48-muted); }
   .msg.ok { color: var(--s48-good); font-weight: 700; }
   .msg.err { color: var(--s48-bad); font-weight: 700; }
   .panel { text-align: center; padding: 48px 12px; }
-  .panel h2 { font-size: 24px; margin: 0 0 8px; }
+  .panel h2 { font-family: var(--s48-font-display); font-weight: 700; font-size: 24px; margin: 0 0 8px; }
   .panel p { color: var(--s48-muted); margin: 0; }
   .hidden { display: none !important; }
 </style>
 </head>
-<body>
+<body class="s48-light">
 <div class="wrap">
   <header>
     <div class="s48-wordmark" style="font-size:20px">startup<span>48</span></div>

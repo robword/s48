@@ -15,59 +15,67 @@
   body { font-family: var(--s48-font); color: var(--s48-text); }
   body.idle { cursor: none; }
   #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--s48-bg); overflow: hidden; }
-  .slide { position: absolute; inset: 0; padding: 110px 140px; box-sizing: border-box; display: none; flex-direction: column; justify-content: center; }
+  .slide { position: absolute; inset: 0; padding: 110px 140px; box-sizing: border-box; display: none; flex-direction: column; justify-content: center; background: var(--s48-bg); color: var(--s48-text); }
   .slide.active { display: flex; animation: fadein .35s ease-out; }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
   #blank { position: absolute; inset: 0; background: #000; display: none; z-index: 10; }
   body.blank #blank { display: block; }
 
   /* chrome on every slide */
-  .corner { position: absolute; left: 140px; bottom: 56px; font-size: 30px; }
-  .pageno { position: absolute; right: 140px; bottom: 60px; font-size: 24px; color: var(--s48-muted); }
+  .corner { position: absolute; left: 140px; bottom: 52px; font-size: 30px; }
+  .pageno { position: absolute; right: 140px; bottom: 58px; font-size: 24px; color: var(--s48-muted); }
   #progress { position: absolute; left: 0; bottom: 0; height: 8px; background: var(--s48-accent); transition: width .3s; z-index: 5; }
 
-  h1 { font-family: var(--s48-font-display); font-size: 120px; line-height: 1.02; margin: 0 0 30px; letter-spacing: -0.02em; }
-  h2 { font-family: var(--s48-font-display); font-size: 84px; line-height: 1.05; margin: 0 0 50px; letter-spacing: -0.01em; }
+  h1 { font-family: var(--s48-font-display); font-weight: 700; font-size: 120px; line-height: 1.05; margin: 0 0 30px; letter-spacing: -0.01em; }
+  h2 { font-family: var(--s48-font-display); font-weight: 700; font-size: 84px; line-height: 1.1; margin: 0 0 50px; }
   p, li { font-size: 44px; line-height: 1.4; }
-  .kicker { font-size: 34px; text-transform: uppercase; letter-spacing: .14em; color: var(--s48-accent); font-weight: 800; margin-bottom: 24px; }
+  .kicker { font-family: var(--s48-font-heading); font-size: 34px; text-transform: uppercase; letter-spacing: .14em; color: var(--s48-accent-ink); font-weight: 700; margin-bottom: 20px; }
   .muted { color: var(--s48-muted); }
   ul.big { margin: 0; padding-left: 1.1em; }
   ul.big li { margin: 0 0 18px; }
-  ul.big li::marker { color: var(--s48-accent); }
-  .accent { color: var(--s48-accent); }
+  ul.big li::marker { color: var(--s48-accent-ink); }
+  .accent { color: var(--s48-accent-ink); }
   .placeholder { outline: 3px dashed var(--s48-line); outline-offset: 10px; }
 
-  /* title */
-  .title .s48-wordmark { font-size: 260px; line-height: 1; margin-bottom: 30px; }
-  .title p { font-size: 56px; margin: 0; }
-  .title .stripe { position: absolute; right: -160px; top: -160px; width: 760px; height: 760px; border-radius: 50%; background: var(--s48-accent); opacity: .14; }
+  /* title / closing: cream hero with the three-tile color band, like startup48.co */
+  .title { padding-bottom: 230px; }
+  .title .s48-wordmark { position: relative; font-size: 170px; margin-bottom: 44px; }
+  .title p { font-family: var(--s48-font-display); font-size: 60px; margin: 0; }
+  .title .mark { position: absolute; right: -330px; top: -300px; width: 820px; height: 820px; background: url("../assets/logo-mark.svg") center / contain no-repeat; opacity: .12; }
+  .band { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; display: flex; }
+  .band div { flex: 1; display: flex; align-items: center; justify-content: center; font-family: var(--s48-font-heading); font-weight: 600; font-size: 46px; color: #fff; }
+  .c-orange { background: var(--s48-orange); }
+  .c-teal { background: var(--s48-teal); }
+  .c-slate { background: var(--s48-slate); }
+  .c-deep { background: var(--s48-deep); }
 
   /* sponsors */
   .logos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; }
-  .logos div { height: 200px; border-radius: 20px; background: var(--s48-surface); display: flex; align-items: center; justify-content: center; font-size: 34px; color: var(--s48-muted); }
+  .logos div { height: 200px; border-radius: 16px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #8a8580; }
 
-  /* schedule */
+  /* schedule: one brand tile color per day */
   .schedule { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-  .day { background: var(--s48-surface); border-radius: 24px; padding: 34px 32px; }
-  .day h3 { font-family: var(--s48-font-display); font-size: 52px; margin: 0 0 24px; color: var(--s48-accent); }
-  .day table { width: 100%; border-collapse: collapse; }
+  .day { background: var(--s48-surface); border-radius: 16px; overflow: hidden; }
+  .day h3 { font-family: var(--s48-font-heading); font-weight: 700; font-size: 50px; margin: 0; padding: 22px 32px; color: #fff; }
+  .day table { width: calc(100% - 64px); margin: 14px 32px 26px; border-collapse: collapse; }
   .day td { font-size: 30px; padding: 9px 0; vertical-align: top; border-top: 1px solid var(--s48-line); }
+  .day tr:first-child td { border-top: 0; }
   .day td:first-child { width: 160px; white-space: nowrap; padding-right: 16px; color: var(--s48-muted); font-variant-numeric: tabular-nums; }
 
-  /* steps */
-  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; }
-  .step { background: var(--s48-surface); border-radius: 24px; padding: 40px; }
-  .step .n { font-family: var(--s48-font-display); font-size: 90px; color: var(--s48-accent); line-height: 1; }
-  .step p { font-size: 38px; margin: 20px 0 0; }
+  /* steps: the site's colored tiles */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-radius: 16px; overflow: hidden; }
+  .step { padding: 48px 40px 56px; color: #fff; }
+  .step .n { font-family: var(--s48-font-display); font-weight: 800; font-size: 96px; line-height: 1; }
+  .step p { font-family: var(--s48-font-heading); font-weight: 600; font-size: 40px; margin: 20px 0 0; }
 
   /* voting */
   .vote { flex-direction: row !important; align-items: center; gap: 110px; }
   .vote .left { flex: 1; }
-  .vote .qr { width: 760px; height: 760px; border-radius: 28px; background: #fff; padding: 20px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #0f1222; text-align: center; font-size: 44px; font-weight: 800; }
+  .vote .qr { width: 760px; height: 760px; border-radius: 16px; background: #fff; padding: 20px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: var(--s48-navy); text-align: center; font-family: var(--s48-font-display); font-size: 44px; font-weight: 700; }
   .vote .qr svg { width: 100%; height: 100%; display: block; }
-  .vote .url { font-size: 38px; font-family: "SF Mono", Menlo, Consolas, monospace; color: var(--s48-accent-2); word-break: break-all; margin-top: 30px; }
-  .vote .count { font-size: 64px; font-weight: 900; margin-top: 40px; }
-  .vote .count span { color: var(--s48-accent); }
+  .vote .url { font-size: 38px; font-family: var(--s48-font); font-weight: 500; color: var(--s48-accent-2); word-break: break-all; margin-top: 30px; }
+  .vote .count { font-family: var(--s48-font-display); font-size: 64px; font-weight: 700; margin-top: 40px; }
+  .vote .count span { color: var(--s48-accent-ink); }
   .vote .qr.wait { background: var(--s48-surface); color: var(--s48-text); }
   .pulse { animation: pulse 1.8s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .45; } }
@@ -77,11 +85,12 @@
 <div id="stage">
 
   <!-- 1. Title -->
-  <section class="slide title" data-id="title">
-    <div class="stripe"></div>
+  <section class="slide title s48-light" data-id="title">
+    <div class="mark"></div>
     <div class="s48-wordmark">startup<span>48</span></div>
     <p><strong>Opening Night</strong></p>
     <p class="muted">[Event date] · [Venue]</p>
+    <div class="band"><div class="c-orange">Pitch</div><div class="c-teal">Build</div><div class="c-slate">Launch</div></div>
   </section>
 
   <!-- 2. Welcome / tonight -->
@@ -101,10 +110,10 @@
     <div class="kicker">The idea</div>
     <h2>48 hours. Idea to launch.</h2>
     <div class="steps">
-      <div class="step"><div class="n">1</div><p>Pitch an idea</p></div>
-      <div class="step"><div class="n">2</div><p>Vote &amp; form teams</p></div>
-      <div class="step"><div class="n">3</div><p>Build, validate, iterate</p></div>
-      <div class="step"><div class="n">4</div><p>Demo to the judges</p></div>
+      <div class="step c-orange"><div class="n">1</div><p>Pitch an idea</p></div>
+      <div class="step c-teal"><div class="n">2</div><p>Vote &amp; form teams</p></div>
+      <div class="step c-slate"><div class="n">3</div><p>Build, validate, iterate</p></div>
+      <div class="step c-deep"><div class="n">4</div><p>Demo to the judges</p></div>
     </div>
   </section>
 
@@ -124,7 +133,7 @@
     <h2>Schedule</h2>
     <div class="schedule">
       <div class="day">
-        <h3>Friday</h3>
+        <h3 class="c-orange">Friday</h3>
         <table>
           <tr><td>5:30 pm</td><td>Check-in &amp; dinner</td></tr>
           <tr><td>6:30 pm</td><td>Welcome</td></tr>
@@ -135,7 +144,7 @@
         </table>
       </div>
       <div class="day">
-        <h3>Saturday</h3>
+        <h3 class="c-teal">Saturday</h3>
         <table>
           <tr><td>8:00 am</td><td>Breakfast</td></tr>
           <tr><td>9:00 am</td><td>Work session</td></tr>
@@ -146,7 +155,7 @@
         </table>
       </div>
       <div class="day">
-        <h3>Sunday</h3>
+        <h3 class="c-slate">Sunday</h3>
         <table>
           <tr><td>8:00 am</td><td>Breakfast</td></tr>
           <tr><td>9:00 am</td><td>Final push</td></tr>
@@ -208,10 +217,11 @@
   </section>
 
   <!-- 10. Close -->
-  <section class="slide title" data-id="go">
-    <div class="stripe"></div>
-    <div class="s48-wordmark">Let's <span>build.</span></div>
+  <section class="slide title s48-light" data-id="go">
+    <div class="mark"></div>
+    <h1 style="font-size:180px">Let's <span style="color: var(--s48-orange)">build.</span></h1>
     <p class="muted">#startup48</p>
+    <div class="band"><div class="c-orange"></div><div class="c-teal"></div><div class="c-slate"></div></div>
   </section>
 
   <div class="corner s48-wordmark">startup<span>48</span></div>
@@ -242,6 +252,7 @@
     document.getElementById('progress').style.width = (100 * (cur + 1) / slides.length) + '%';
     var hide = slides[cur].classList.contains('title');
     document.querySelector('.corner').style.display = hide ? 'none' : '';
+    document.getElementById('pageno').style.display = hide ? 'none' : '';
     if (!fromHash) {
       var id = slides[cur].getAttribute('data-id') || String(cur + 1);
       if (history.replaceState) { history.replaceState(null, '', '#' + id); } else { location.hash = id; }
