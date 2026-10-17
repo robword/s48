@@ -10,6 +10,7 @@ no CDN. Runs on DreamHost (or any Apache + PHP host).
 | `slides/` | Opening-night deck, 16:9, scales to any screen; live voting QR slide |
 | `admin/` | Operator console: log pitches, start/close voting, live results |
 | `vote/` | Mobile voting page participants reach via the QR code |
+| `judging/` | Judging form for final pitches (web version of `judging/judging-form.pdf`) |
 | `api/` | JSON endpoints (`status`, `ballot`, `admin`) |
 | `inc/` | Shared PHP (not web-accessible) |
 | `bin/` | CLI scripts (not web-accessible) |
@@ -41,6 +42,15 @@ Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5
 - Bookmarkable: `timer/?d=180&w=60,30&label=Demo` (values in seconds).
 - Click once (or press any key) before the first pitch so the browser allows sound. Use **Test tone** to check the speakers.
 - The timer works from the clock rather than counting ticks, so it stays accurate if the tab is in the background. It also keeps the screen awake where the browser supports it.
+
+## Judging form
+
+Open `judging/`. It's the organizers' judging sheet as a web page: Team name and Product, then Validation, Execution &
+Design and Business Model, each with its prompt questions and a notes box. It works on a phone, tablet or laptop.
+
+- Notes save automatically in **that browser only** (no server storage). **Start next team** clears the form.
+- **Print / Save PDF** (or Ctrl+P) gives a one-page landscape copy laid out like the original.
+- The original PDF can be downloaded from the page.
 
 ## Slides
 

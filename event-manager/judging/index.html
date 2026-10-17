@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#faf1ed">
+<title>startup48 · Judging Form</title>
+<!--
+  Web version of the Startup 48 judging form (judging-form.pdf).
+  Notes save automatically in this browser only (localStorage); nothing is sent to the server.
+  Print / Save as PDF produces a one-sheet landscape copy.
+-->
+<link rel="stylesheet" href="../assets/theme.css">
+<style>
+  * { box-sizing: border-box; }
+  html { background: var(--s48-cream); }
+  body { margin: 0; background: var(--s48-bg); color: var(--s48-text); font-family: var(--s48-font); -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .top .s48-wordmark { font-size: 22px; }
+  .top a { color: var(--s48-accent-2); font-size: 15px; }
+  h1 { font-family: var(--s48-font-display); font-weight: 700; font-size: 30px; margin: 18px 0 4px; }
+  .lede { color: var(--s48-muted); margin: 0 0 18px; line-height: 1.45; }
+  .ids { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 600px) { .ids { grid-template-columns: 1fr; } }
+  label.f { display: block; font-family: var(--s48-font-heading); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--s48-muted); }
+  input[type=text], textarea {
+    width: 100%; margin-top: 6px; font: inherit; font-size: 16px; color: var(--s48-text);
+    background: var(--s48-surface); border: 2px solid var(--s48-line); border-radius: 10px; padding: 10px 12px;
+  }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--s48-teal); }
+
+  .section { display: flex; background: var(--s48-surface); border: 2px solid var(--s48-line); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+  .band { flex: none; width: 46px; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .band span { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--s48-font-heading); font-weight: 700; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+  .c-orange { background: var(--s48-orange); }
+  .c-teal { background: var(--s48-teal); }
+  .c-slate { background: var(--s48-slate); }
+  .body { flex: 1; display: grid; grid-template-columns: minmax(220px, 34%) 1fr; min-width: 0; }
+  .qs { margin: 0; padding: 6px 0; list-style: none; border-right: 1px solid var(--s48-line); }
+  .qs li { padding: 9px 16px; border-bottom: 1px solid var(--s48-line); line-height: 1.35; }
+  .qs li:last-child { border-bottom: 0; }
+  .notes { padding: 12px; display: flex; flex-direction: column; }
+  .notes textarea { flex: 1; min-height: 160px; margin: 0; resize: vertical; line-height: 1.45; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  @media (max-width: 700px) {
+    .band { width: 34px; }
+    .body { grid-template-columns: 1fr; }
+    .qs { border-right: 0; border-bottom: 1px solid var(--s48-line); }
+    .notes textarea { min-height: 130px; }
+  }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer; }
+  .primary { background: var(--s48-orange); color: #fff; font-family: var(--s48-font-display); }
+  .secondary { background: transparent; color: var(--s48-text); box-shadow: inset 0 0 0 2px var(--s48-line); }
+  .saved { color: var(--s48-muted); font-size: 14px; margin-left: auto; }
+
+  /* Printed copy: one landscape letter page, like the original form. */
+  @page { size: letter landscape; margin: 0.4in; }
+  @media print {
+    html, body { background: #fff; color: #000; }
+    .wrap { max-width: none; padding: 0; }
+    .top a, .lede, .actions, h1 { display: none; }
+    .top .s48-wordmark { font-size: 16pt; color: #000; }
+    .ids { grid-template-columns: 1fr 1fr; margin: 8pt 0 10pt; }
+    input[type=text] { border: 0; border-bottom: 1px solid #000; border-radius: 0; background: none; padding: 2pt 0; font-size: 11pt; color: #000; }
+    .section { border: 1px solid #888; border-radius: 0; margin-bottom: 8pt; break-inside: avoid; background: #fff; }
+    .band { width: 26pt; background: #7f7f7f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .band span { font-size: 9pt; }
+    .body { grid-template-columns: 2.2in 1fr; }
+    .qs { padding: 0; border-right: 1px solid #888; }
+    .qs li { padding: 4pt 6pt; font-size: 9.5pt; text-align: right; border-color: #888; }
+    .notes { padding: 4pt; }
+    .notes textarea { border: 0; background: none; font-size: 10pt; color: #000; min-height: 0; resize: none; overflow: hidden; }
+  }
+</style>
+</head>
+<body class="s48-light">
+<div class="wrap">
+  <div class="top">
+    <div class="s48-wordmark">startup<span>48</span></div>
+    <a href="judging-form.pdf" download>Download original PDF</a>
+  </div>
+
+  <h1>Judging Form</h1>
+  <p class="lede">Use the questions as prompts and write notes for each section. Notes save automatically on this device only, not on the server. Use <strong>Print / Save PDF</strong> to hand in a copy.</p>
+
+  <div class="ids">
+    <label class="f">Team name<input type="text" id="team" autocomplete="off"></label>
+    <label class="f">Product<input type="text" id="product" autocomplete="off"></label>
+  </div>
+
+  <section class="section">
+    <div class="band c-orange"><span>Validation</span></div>
+    <div class="body">
+      <ul class="qs">
+        <li>Clear need identified?</li>
+        <li>Specific target market?</li>
+        <li>Did the team receive customer feedback on their product?</li>
+      </ul>
+      <div class="notes"><label class="sr" for="n-validation">Validation notes</label><textarea id="n-validation" data-notes></textarea></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="band c-teal"><span>Execution &amp; Design</span></div>
+    <div class="body">
+      <ul class="qs">
+        <li>Is there an MVP?</li>
+        <li>Is the MVP functional?</li>
+        <li>Is the product usable?</li>
+        <li>Clean &amp; easy user interface?</li>
+        <li>Does the team work well together?</li>
+      </ul>
+      <div class="notes"><label class="sr" for="n-execution">Execution &amp; design notes</label><textarea id="n-execution" data-notes></textarea></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="band c-slate"><span>Business Model</span></div>
+    <div class="body">
+      <ul class="qs">
+        <li>Does the solution work?</li>
+        <li>Is there a value proposition?</li>
+        <li>Is the product unique?</li>
+        <li>Will they stand apart from their competition?</li>
+        <li>Do they have defined strategy to enter the market?</li>
+        <li>Do they have a sustainable funding model?</li>
+        <li>Is their user acquisition model realistic?</li>
+      </ul>
+      <div class="notes"><label class="sr" for="n-business">Business model notes</label><textarea id="n-business" data-notes></textarea></div>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button class="primary" type="button" id="print">Print / Save PDF</button>
+    <button class="secondary" type="button" id="clear">Start next team</button>
+    <span class="saved" id="saved"></span>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 's48judging.draft';
+  var ids = ['team', 'product', 'n-validation', 'n-execution', 'n-business'];
+  var $ = function (id) { return document.getElementById(id); };
+  var t = null;
+
+  function load() {
+    var d = null;
+    try { d = JSON.parse(window.localStorage.getItem(KEY) || 'null'); } catch (e) { d = null; }
+    if (!d) { return; }
+    for (var i = 0; i < ids.length; i++) { if (typeof d[ids[i]] === 'string') { $(ids[i]).value = d[ids[i]]; } }
+  }
+
+  function save() {
+    var d = {};
+    for (var i = 0; i < ids.length; i++) { d[ids[i]] = $(ids[i]).value; }
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(d));
+      $('saved').textContent = 'Saved on this device ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {
+      $('saved').textContent = 'Not saved (private browsing?) — print before leaving';
+    }
+  }
+
+  function changed() { clearTimeout(t); t = setTimeout(save, 400); }
+
+  for (var i = 0; i < ids.length; i++) { $(ids[i]).addEventListener('input', changed); }
+
+  // Grow each notes box to fit its text so nothing is cut off on paper (button or Ctrl+P).
+  function fitNotes(reset) {
+    var boxes = document.querySelectorAll('[data-notes]');
+    for (var j = 0; j < boxes.length; j++) {
+      boxes[j].style.height = 'auto';
+      if (!reset) { boxes[j].style.height = boxes[j].scrollHeight + 'px'; } else { boxes[j].style.height = ''; }
+    }
+  }
+  window.addEventListener('beforeprint', function () { fitNotes(false); });
+  window.addEventListener('afterprint', function () { fitNotes(true); });
+  $('print').addEventListener('click', function () { window.print(); });
+
+  $('clear').addEventListener('click', function () {
+    var name = $('team').value.trim();
+    if (!confirm('Clear the form for the next team?' + (name ? '\n\nNotes for "' + name + '" will be erased from this device. Print first if you need a copy.' : ''))) { return; }
+    for (var i = 0; i < ids.length; i++) { $(ids[i]).value = ''; }
+    try { window.localStorage.removeItem(KEY); } catch (e) { }
+    $('saved').textContent = '';
+    $('team').focus();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
