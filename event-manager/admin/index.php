@@ -56,12 +56,15 @@ $csrf = s48_csrf_token();
   input[type=text], input[type=password], textarea { font: inherit; width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--s48-line); background: var(--s48-bg); color: var(--s48-text); }
   .row { display: flex; gap: 8px; align-items: center; }
   .row > input { flex: 1; }
-  ol.pitches { list-style: none; margin: 12px 0 0; padding: 0; max-height: 60vh; overflow: auto; }
-  ol.pitches li { display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-bottom: 1px solid var(--s48-line); }
-  ol.pitches .n { width: 28px; color: var(--s48-muted); text-align: right; }
-  ol.pitches .nm { flex: 1; cursor: text; padding: 4px; border-radius: 4px; word-break: break-word; }
+  ol.pitches { list-style: none; margin: 10px 0 0; padding: 0; max-height: calc(100vh - 230px); min-height: 120px; overflow: auto; font-size: 14px; }
+  ol.pitches li { display: flex; align-items: center; gap: 4px; padding: 1px 2px; border-bottom: 1px solid var(--s48-line); min-height: 25px; }
+  ol.pitches .n { width: 26px; color: var(--s48-muted); text-align: right; font-size: 13px; }
+  ol.pitches .nm { flex: 1; cursor: text; padding: 2px 4px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   ol.pitches .nm:hover { background: var(--s48-bg); }
-  ol.pitches button { padding: 4px 8px; font-size: 13px; }
+  ol.pitches button { padding: 1px 7px; font-size: 12px; line-height: 17px; }
+  ol.pitches li:not(:hover) button:not(.danger) { opacity: .45; }
+  ol.pitches input { padding: 4px 6px; }
+  .empty td { color: var(--s48-muted); text-align: center; padding: 28px 6px; border-bottom: 0; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
   @media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
   .stat { background: var(--s48-bg); border-radius: 12px; padding: 14px; }
@@ -120,8 +123,8 @@ $csrf = s48_csrf_token();
         <button class="primary" type="submit">Add</button>
       </form>
       <ol class="pitches" id="pitchList"></ol>
-      <p class="muted">Click a name to rename. Delete is only available before voting starts.</p>
-      <details>
+      <p class="muted">Click a name to rename (full name shows on hover). Delete is only available before voting starts.</p>
+      <details id="bulkBox">
         <summary>Paste a list (one per line)</summary>
         <textarea id="bulk" rows="6" style="margin-top:8px"></textarea>
         <p><button type="button" id="bulkAdd">Add all</button></p>
@@ -146,7 +149,7 @@ $csrf = s48_csrf_token();
 
       <h2>Live ranking</h2>
       <table>
-        <thead><tr><th>#</th><th>Idea</th><th></th><th style="text-align:right">Votes</th><th style="text-align:right">Voters</th></tr></thead>
+        <thead id="rankHead"><tr><th>#</th><th>Idea</th><th></th><th style="text-align:right">Votes</th><th style="text-align:right">Voters</th></tr></thead>
         <tbody id="ranking"></tbody>
       </table>
 
@@ -207,7 +210,7 @@ $csrf = s48_csrf_token();
       var li = el('li');
       li.appendChild(el('span', 'n', p.n + '.'));
       var nm = el('span', 'nm', p.name);
-      nm.title = 'Click to rename';
+      nm.title = p.name + ' (click to rename)';
       nm.onclick = function () { startRename(li, p); };
       li.appendChild(nm);
       var up = el('button', '', '↑'); up.disabled = i === 0; up.title = 'Move up';
@@ -261,7 +264,14 @@ $csrf = s48_csrf_token();
     var tb = $('ranking'), max = 1;
     r.ranking.forEach(function (x) { if (x.votes > max) { max = x.votes; } });
     tb.innerHTML = '';
-    r.ranking.forEach(function (x) {
+    $('rankHead').style.display = st === 'setup' ? 'none' : '';
+    if (st === 'setup') {
+      var er = el('tr', 'empty'), ec = el('td', '', 'Ranking appears once voting starts.');
+      ec.colSpan = 5;
+      er.appendChild(ec);
+      tb.appendChild(er);
+    }
+    if (st !== 'setup') r.ranking.forEach(function (x) {
       var tr = el('tr');
       tr.appendChild(el('td', 'rk', x.rank));
       tr.appendChild(el('td', '', x.n + '. ' + x.name));
@@ -297,6 +307,7 @@ $csrf = s48_csrf_token();
     if (!$('bulk').value.trim()) { return; }
     act('add', { names: $('bulk').value });
     $('bulk').value = '';
+    $('bulkBox').open = false;
   };
   $('btnStart').onclick = function () {
     if (confirm('Start voting with ' + data.pitches.length + ' pitches? The QR code will appear on the slides.')) { act('start'); }
