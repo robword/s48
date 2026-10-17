@@ -48,6 +48,7 @@ try {
   .bar .inner { max-width: 560px; margin: 0 auto; }
   .submit { width: 100%; padding: 16px; font-size: 18px; font-weight: 800; border: 0; border-radius: 12px; background: var(--s48-accent); color: var(--s48-on-accent); }
   .submit:disabled { opacity: .4; }
+  .submit.done, .submit.done:disabled { opacity: 1; background: transparent; color: var(--s48-good); box-shadow: inset 0 0 0 2px var(--s48-good); }
   .msg { text-align: center; font-size: 14px; min-height: 18px; margin-bottom: 8px; color: var(--s48-muted); }
   .msg.ok { color: var(--s48-good); font-weight: 700; }
   .msg.err { color: var(--s48-bad); font-weight: 700; }
@@ -130,7 +131,9 @@ try {
     }
     $('bankLabel').textContent = left === 1 ? '1 vote left' : left + ' votes left';
     $('submit').disabled = used() < 1 || !state.dirty;
-    $('submit').textContent = state.saved && !state.dirty ? 'Votes submitted ✓' : (state.saved ? 'Update votes' : 'Submit votes');
+    var done = state.saved && !state.dirty;
+    $('submit').textContent = done ? 'Votes submitted ✓' : (state.saved ? 'Update votes' : 'Submit votes');
+    $('submit').className = done ? 'submit done' : 'submit';
   }
 
   function renderList() {

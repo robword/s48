@@ -174,7 +174,7 @@
   <!-- 7. Voting (live QR) -->
   <section class="slide vote" data-id="vote">
     <div class="left">
-      <div class="kicker">Vote now</div>
+      <div class="kicker" id="voteKicker">Vote now</div>
       <h2 id="voteTitle">Pick your favorites</h2>
       <p id="voteBody">You get <strong class="accent">3 votes</strong>. Use them on one idea or spread them out.</p>
       <div class="url" id="voteUrl"></div>
@@ -326,6 +326,8 @@
   function renderVote(res) {
     var qr = document.getElementById('qr');
     var title = document.getElementById('voteTitle');
+    var kicker = document.getElementById('voteKicker');
+    var bodyEl = document.getElementById('voteBody');
     var count = document.getElementById('voteCount');
     var urlEl = document.getElementById('voteUrl');
     if (res.status === 'open') {
@@ -335,6 +337,8 @@
         lastUrl = res.vote_url;
       }
       title.textContent = 'Scan to vote';
+      kicker.textContent = 'Vote now';
+      bodyEl.style.display = '';
       urlEl.textContent = res.vote_url.replace(/^https?:\/\//, '');
       var n = res.counts ? res.counts.submitted : 0;
       count.innerHTML = '<span>' + n + '</span> ' + (n === 1 ? 'person has' : 'people have') + ' voted';
@@ -342,12 +346,16 @@
       qr.className = 'qr wait';
       qr.innerHTML = '<div>Voting<br>is closed</div>';
       title.textContent = 'Thanks for voting!';
+      kicker.textContent = 'Voting closed';
+      bodyEl.style.display = 'none';
       urlEl.textContent = '';
       count.innerHTML = res.counts ? '<span>' + res.counts.submitted + '</span> ' + (res.counts.submitted === 1 ? 'person' : 'people') + ' voted' : '';
     } else {
       qr.className = 'qr wait';
       qr.innerHTML = '<div class="pulse">Voting opens<br>after the last pitch</div>';
       title.textContent = 'Pick your favorites';
+      kicker.textContent = 'Vote now';
+      bodyEl.style.display = '';
       urlEl.textContent = '';
       count.textContent = '';
     }
