@@ -3,7 +3,7 @@
 return [
     // Absolute URL of the s48 folder. Set this in production so the QR code
     // never depends on the incoming Host header.
-    'public_base_url' => '',          // e.g. 'https://example.com/s48/'
+    'public_base_url' => '',          // e.g. 'https://slop.brynelsen.com/s48/'
 
     // Where ballots/state live. Move OUTSIDE the web root in production.
     // 'data_dir' => '/home/USERNAME/s48-data',

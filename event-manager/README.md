@@ -64,14 +64,34 @@ Tested locally with 60 simultaneous voters plus 10 page-only visits: every ballo
 
 ## Deploying to DreamHost
 
-1. Upload the `s48/` folder (e.g. to `example.com/s48/`). Make sure PHP 8.1+ is selected for the domain.
-2. Enable HTTPS (free Let's Encrypt in the DreamHost panel), then uncomment the HTTPS redirect in `.htaccess`.
-3. `cp inc/config.sample.php inc/config.php` and set:
-   - `public_base_url` => `'https://example.com/s48/'` (so the QR never depends on the Host header)
-   - `data_dir` => a folder **outside** the web root, e.g. `'/home/USERNAME/s48-data'`
-4. Over SSH: `php s48/bin/set-password.php` to set the operator password.
-5. Check that `https://example.com/s48/data/`, `/inc/` and `/bin/` return **403**.
-6. Rehearse: add a test pitch, start voting, vote from a phone on cellular data, then **Reset**.
+Dev target: **https://slop.brynelsen.com/s48/**, deployed by GitHub Actions
+(`.github/workflows/deploy-s48.yml`). A push to `main` that touches `s48/` rsyncs this folder
+over SSH, then checks that the live `version.json` matches the commit and that protected paths
+return 403/404. You can also run it manually from the Actions tab, with a dry-run option.
+
+The deploy key is locked by `rrsync` to `/home/<user>/slop.brynelsen.com/s48`. It can only
+rsync into that folder: no shell access, and no access to the rest of the site.
+`--delete` keeps the folder an exact copy of `s48/`, **except** `data/` (live votes and the
+password hash) and `inc/config.php`, which exist only on the server and are never uploaded or deleted.
+
+One-time setup:
+
+1. In the DreamHost panel, create a **shell** (SSH) user that owns `slop.brynelsen.com`.
+   Make sure PHP 8.1+ is selected and HTTPS (Let's Encrypt) is on for the domain.
+2. On your laptop, run the setup script `dh-deploy-setup.sh` (kept outside the repo; it needs
+   `gh`, `ssh` and `rsync`). It creates the deploy key, installs it on the server and stores
+   the repo secrets and the `SITE_URL` variable. Re-run it to rotate the key, or after DreamHost moves
+   the account to a new server (deploys then fail with "host identification has changed").
+3. Merge to `main` (or run the workflow manually) to deploy.
+4. Log in with the shell user's password and do the server-only steps once:
+   ```sh
+   cd ~/slop.brynelsen.com/s48
+   cp inc/config.sample.php inc/config.php   # then edit it:
+   #   'public_base_url' => 'https://slop.brynelsen.com/s48/',
+   #   'data_dir'        => '/home/USERNAME/s48-data',   (outside the web root)
+   php bin/set-password.php
+   ```
+5. Rehearse: add a test pitch, start voting, vote from a phone on cellular data, then **Reset**.
 
 Local development:
 
@@ -91,8 +111,8 @@ This is a light-traffic mockup. Known gaps, roughly in priority order:
    The "opened" count can be inflated the same way.
 2. **No rate limiting on the voting endpoints.** A script can mint cookies and post many ballots, or
    fill `data/` with "opened" marker files. Add per-IP limits (or a WAF/mod_evasive), and cap the file count per round.
-3. **HTTPS is not enforced** by default. Without it, the operator password and session cookie travel in plain
-   text. Enable TLS and the redirect. Cookies are marked `Secure` automatically once HTTPS is detected.
+3. **HTTPS depends on the domain's certificate.** `.htaccess` redirects every request to HTTPS, so make sure
+   Let's Encrypt is active for the domain. Cookies are marked `Secure` automatically once HTTPS is detected.
 4. **Data inside the web root.** `data/` is blocked by `.htaccess`, but a misconfiguration (e.g. moving
    to nginx, or `AllowOverride None`) would expose ballots and the password hash. Set `data_dir` outside the web root.
 5. **Single shared operator password**, with no per-user accounts, 2FA or audit log of operator actions.
