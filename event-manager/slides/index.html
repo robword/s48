@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>startup48 · Opening Night</title>
+<!--
+  Opening-night deck. Each <section class="slide"> is one slide (1920x1080 design canvas,
+  scaled to fit any screen). Give a slide data-id="name" to make #name links work.
+  Keys: → / PageDown / Space next · ← / PageUp prev · Home/End · F fullscreen · V voting slide · B blank
+-->
+<link rel="stylesheet" href="../assets/theme.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: var(--s48-font); color: var(--s48-text); }
+  body.idle { cursor: none; }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--s48-bg); overflow: hidden; }
+  .slide { position: absolute; inset: 0; padding: 110px 140px; box-sizing: border-box; display: none; flex-direction: column; justify-content: center; }
+  .slide.active { display: flex; animation: fadein .35s ease-out; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  #blank { position: absolute; inset: 0; background: #000; display: none; z-index: 10; }
+  body.blank #blank { display: block; }
+
+  /* chrome on every slide */
+  .corner { position: absolute; left: 140px; bottom: 56px; font-size: 30px; }
+  .pageno { position: absolute; right: 140px; bottom: 60px; font-size: 24px; color: var(--s48-muted); }
+  #progress { position: absolute; left: 0; bottom: 0; height: 8px; background: var(--s48-accent); transition: width .3s; z-index: 5; }
+
+  h1 { font-family: var(--s48-font-display); font-size: 120px; line-height: 1.02; margin: 0 0 30px; letter-spacing: -0.02em; }
+  h2 { font-family: var(--s48-font-display); font-size: 84px; line-height: 1.05; margin: 0 0 50px; letter-spacing: -0.01em; }
+  p, li { font-size: 44px; line-height: 1.4; }
+  .kicker { font-size: 34px; text-transform: uppercase; letter-spacing: .14em; color: var(--s48-accent); font-weight: 800; margin-bottom: 24px; }
+  .muted { color: var(--s48-muted); }
+  ul.big { margin: 0; padding-left: 1.1em; }
+  ul.big li { margin: 0 0 18px; }
+  ul.big li::marker { color: var(--s48-accent); }
+  .accent { color: var(--s48-accent); }
+  .placeholder { outline: 3px dashed var(--s48-line); outline-offset: 10px; }
+
+  /* title */
+  .title .s48-wordmark { font-size: 260px; line-height: 1; margin-bottom: 30px; }
+  .title p { font-size: 56px; margin: 0; }
+  .title .stripe { position: absolute; right: -160px; top: -160px; width: 760px; height: 760px; border-radius: 50%; background: var(--s48-accent); opacity: .14; }
+
+  /* sponsors */
+  .logos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; }
+  .logos div { height: 200px; border-radius: 20px; background: var(--s48-surface); display: flex; align-items: center; justify-content: center; font-size: 34px; color: var(--s48-muted); }
+
+  /* schedule */
+  .schedule { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  .day { background: var(--s48-surface); border-radius: 24px; padding: 34px 32px; }
+  .day h3 { font-family: var(--s48-font-display); font-size: 52px; margin: 0 0 24px; color: var(--s48-accent); }
+  .day table { width: 100%; border-collapse: collapse; }
+  .day td { font-size: 30px; padding: 9px 0; vertical-align: top; border-top: 1px solid var(--s48-line); }
+  .day td:first-child { width: 160px; white-space: nowrap; padding-right: 16px; color: var(--s48-muted); font-variant-numeric: tabular-nums; }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; }
+  .step { background: var(--s48-surface); border-radius: 24px; padding: 40px; }
+  .step .n { font-family: var(--s48-font-display); font-size: 90px; color: var(--s48-accent); line-height: 1; }
+  .step p { font-size: 38px; margin: 20px 0 0; }
+
+  /* voting */
+  .vote { flex-direction: row !important; align-items: center; gap: 110px; }
+  .vote .left { flex: 1; }
+  .vote .qr { width: 760px; height: 760px; border-radius: 28px; background: #fff; padding: 20px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #0f1222; text-align: center; font-size: 44px; font-weight: 800; }
+  .vote .qr svg { width: 100%; height: 100%; display: block; }
+  .vote .url { font-size: 38px; font-family: "SF Mono", Menlo, Consolas, monospace; color: var(--s48-accent-2); word-break: break-all; margin-top: 30px; }
+  .vote .count { font-size: 64px; font-weight: 900; margin-top: 40px; }
+  .vote .count span { color: var(--s48-accent); }
+  .vote .qr.wait { background: var(--s48-surface); color: var(--s48-text); }
+  .pulse { animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 1. Title -->
+  <section class="slide title" data-id="title">
+    <div class="stripe"></div>
+    <div class="s48-wordmark">startup<span>48</span></div>
+    <p><strong>Opening Night</strong></p>
+    <p class="muted">[Event date] · [Venue]</p>
+  </section>
+
+  <!-- 2. Welcome / tonight -->
+  <section class="slide" data-id="tonight">
+    <div class="kicker">Welcome</div>
+    <h2>Tonight</h2>
+    <ul class="big">
+      <li>Welcome &amp; how the weekend works</li>
+      <li>Opening pitches — 60 seconds each</li>
+      <li>Vote for your favorite ideas</li>
+      <li>Top ideas announced &amp; teams form</li>
+    </ul>
+  </section>
+
+  <!-- 3. What is startup48 -->
+  <section class="slide" data-id="about">
+    <div class="kicker">The idea</div>
+    <h2>48 hours. Idea to launch.</h2>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><p>Pitch an idea</p></div>
+      <div class="step"><div class="n">2</div><p>Vote &amp; form teams</p></div>
+      <div class="step"><div class="n">3</div><p>Build, validate, iterate</p></div>
+      <div class="step"><div class="n">4</div><p>Demo to the judges</p></div>
+    </div>
+  </section>
+
+  <!-- 4. Sponsors -->
+  <section class="slide" data-id="sponsors">
+    <div class="kicker">Thank you</div>
+    <h2>Our sponsors</h2>
+    <div class="logos">
+      <div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div>
+      <div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div>
+    </div>
+  </section>
+
+  <!-- 5. Weekend schedule (placeholder times) -->
+  <section class="slide" data-id="schedule">
+    <div class="kicker">The weekend</div>
+    <h2>Schedule</h2>
+    <div class="schedule">
+      <div class="day">
+        <h3>Friday</h3>
+        <table>
+          <tr><td>5:30 pm</td><td>Check-in &amp; dinner</td></tr>
+          <tr><td>6:30 pm</td><td>Welcome</td></tr>
+          <tr><td>7:00 pm</td><td>Opening pitches</td></tr>
+          <tr><td>8:15 pm</td><td>Voting</td></tr>
+          <tr><td>8:45 pm</td><td>Team formation</td></tr>
+          <tr><td>9:30 pm</td><td>Start building</td></tr>
+        </table>
+      </div>
+      <div class="day">
+        <h3>Saturday</h3>
+        <table>
+          <tr><td>8:00 am</td><td>Breakfast</td></tr>
+          <tr><td>9:00 am</td><td>Work session</td></tr>
+          <tr><td>12:00 pm</td><td>Lunch</td></tr>
+          <tr><td>1:00 pm</td><td>Mentor office hours</td></tr>
+          <tr><td>6:00 pm</td><td>Dinner &amp; check-in</td></tr>
+          <tr><td>7:00 pm</td><td>Work late</td></tr>
+        </table>
+      </div>
+      <div class="day">
+        <h3>Sunday</h3>
+        <table>
+          <tr><td>8:00 am</td><td>Breakfast</td></tr>
+          <tr><td>9:00 am</td><td>Final push</td></tr>
+          <tr><td>12:00 pm</td><td>Lunch &amp; dry runs</td></tr>
+          <tr><td>3:00 pm</td><td>Final pitches</td></tr>
+          <tr><td>5:00 pm</td><td>Judging</td></tr>
+          <tr><td>5:45 pm</td><td>Awards</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Opening pitch rules -->
+  <section class="slide" data-id="pitch-rules">
+    <div class="kicker">Opening pitches</div>
+    <h2>60 seconds. No slides.</h2>
+    <ul class="big">
+      <li>What's the problem?</li>
+      <li>What's your idea to solve it?</li>
+      <li>Who do you need on your team?</li>
+      <li class="muted">Tones at 0:20 and 0:10 — wrap it up!</li>
+    </ul>
+  </section>
+
+  <!-- 7. Voting (live QR) -->
+  <section class="slide vote" data-id="vote">
+    <div class="left">
+      <div class="kicker">Vote now</div>
+      <h2 id="voteTitle">Pick your favorites</h2>
+      <p id="voteBody">You get <strong class="accent">3 votes</strong>. Use them on one idea or spread them out.</p>
+      <div class="url" id="voteUrl"></div>
+      <div class="count" id="voteCount"></div>
+    </div>
+    <div class="qr wait" id="qr"><div class="pulse">Voting opens<br>after the last pitch</div></div>
+  </section>
+
+  <!-- 8. Next steps -->
+  <section class="slide" data-id="next">
+    <div class="kicker">What's next</div>
+    <h2>Form your team</h2>
+    <ul class="big">
+      <li>Top ideas come to the front</li>
+      <li>Find the idea you want to build</li>
+      <li>Balance skills: build, design, business</li>
+      <li class="muted">[Team size rules / logistics]</li>
+    </ul>
+  </section>
+
+  <!-- 9. Logistics -->
+  <section class="slide" data-id="logistics">
+    <div class="kicker">Good to know</div>
+    <h2>Logistics</h2>
+    <ul class="big">
+      <li>Wi-Fi: <strong>[network]</strong> · Password: <strong>[password]</strong></li>
+      <li>Building hours: [hours]</li>
+      <li>Questions? Find an organizer in a [color] shirt</li>
+      <li>Code of conduct: be kind, be inclusive</li>
+    </ul>
+  </section>
+
+  <!-- 10. Close -->
+  <section class="slide title" data-id="go">
+    <div class="stripe"></div>
+    <div class="s48-wordmark">Let's <span>build.</span></div>
+    <p class="muted">#startup48</p>
+  </section>
+
+  <div class="corner s48-wordmark">startup<span>48</span></div>
+  <div class="pageno" id="pageno"></div>
+  <div id="progress"></div>
+  <div id="blank"></div>
+</div>
+
+<script src="../assets/qrcode.js"></script>
+<script src="../assets/common.js"></script>
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var cur = 0;
+
+  function fit() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    stage.style.transform = 'scale(' + s + ') translate(-50%, -50%)';
+  }
+
+  function go(i, fromHash) {
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    slides[cur].classList.remove('active');
+    cur = i;
+    slides[cur].classList.add('active');
+    document.getElementById('pageno').textContent = (cur + 1) + ' / ' + slides.length;
+    document.getElementById('progress').style.width = (100 * (cur + 1) / slides.length) + '%';
+    var hide = slides[cur].classList.contains('title');
+    document.querySelector('.corner').style.display = hide ? 'none' : '';
+    if (!fromHash) {
+      var id = slides[cur].getAttribute('data-id') || String(cur + 1);
+      if (history.replaceState) { history.replaceState(null, '', '#' + id); } else { location.hash = id; }
+    }
+    schedulePoll(0);
+  }
+
+  function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) { return 0; }
+    for (var i = 0; i < slides.length; i++) { if (slides[i].getAttribute('data-id') === h) { return i; } }
+    var n = parseInt(h, 10);
+    return n > 0 ? n - 1 : 0;
+  }
+
+  function fullscreen() {
+    var d = document, el = d.documentElement;
+    if (!(d.fullscreenElement || d.webkitFullscreenElement)) {
+      (el.requestFullscreen || el.webkitRequestFullscreen || function () { }).call(el);
+    } else {
+      (d.exitFullscreen || d.webkitExitFullscreen || function () { }).call(d);
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'ArrowDown' || k === 'Enter') { go(cur + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'ArrowUp' || k === 'Backspace') { go(cur - 1); }
+    else if (k === 'Home') { go(0); }
+    else if (k === 'End') { go(slides.length - 1); }
+    else if (k === 'f' || k === 'F') { fullscreen(); }
+    else if (k === 'v' || k === 'V') { location.hash = 'vote'; go(fromHash()); }
+    else if (k === 'b' || k === 'B' || k === '.') { document.body.classList.toggle('blank'); }
+    else { return; }
+    e.preventDefault();
+  });
+
+  // Click / tap: right two-thirds = next, left third = previous.
+  document.addEventListener('click', function (e) { go(e.clientX < window.innerWidth / 3 ? cur - 1 : cur + 1); });
+  var tx = null;
+  document.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    if (tx === null) { return; }
+    var dx = e.changedTouches[0].clientX - tx;
+    tx = null;
+    if (Math.abs(dx) > 50) { go(dx < 0 ? cur + 1 : cur - 1); e.preventDefault(); }
+  });
+
+  window.addEventListener('hashchange', function () { go(fromHash(), true); });
+  window.addEventListener('resize', fit);
+
+  var idleT;
+  document.addEventListener('mousemove', function () {
+    document.body.classList.remove('idle');
+    clearTimeout(idleT);
+    idleT = setTimeout(function () { document.body.classList.add('idle'); }, 2500);
+  });
+
+  /* ---------- live voting slide ---------- */
+  var pollT = null, lastUrl = null, lastStatus = null;
+  function voteSlideActive() { return slides[cur].getAttribute('data-id') === 'vote'; }
+
+  function schedulePoll(ms) {
+    clearTimeout(pollT);
+    pollT = setTimeout(poll, ms);
+  }
+
+  function poll() {
+    S48.api('GET', '../api/status.php?counts=1', null, function (err, res) {
+      var qr = document.getElementById('qr');
+      if (err) {
+        qr.className = 'qr wait';
+        qr.innerHTML = '<div>Can’t reach<br>voting server</div>';
+        lastStatus = null;
+      } else {
+        renderVote(res);
+      }
+      schedulePoll(voteSlideActive() ? 3000 : 15000);
+    });
+  }
+
+  function renderVote(res) {
+    var qr = document.getElementById('qr');
+    var title = document.getElementById('voteTitle');
+    var count = document.getElementById('voteCount');
+    var urlEl = document.getElementById('voteUrl');
+    if (res.status === 'open') {
+      if (lastStatus !== 'open' || lastUrl !== res.vote_url) {
+        qr.className = 'qr';
+        qr.innerHTML = S48.qrSvg(res.vote_url, '#0f1222', '#ffffff');
+        lastUrl = res.vote_url;
+      }
+      title.textContent = 'Scan to vote';
+      urlEl.textContent = res.vote_url.replace(/^https?:\/\//, '');
+      var n = res.counts ? res.counts.submitted : 0;
+      count.innerHTML = '<span>' + n + '</span> ' + (n === 1 ? 'person has' : 'people have') + ' voted';
+    } else if (res.status === 'closed') {
+      qr.className = 'qr wait';
+      qr.innerHTML = '<div>Voting<br>is closed</div>';
+      title.textContent = 'Thanks for voting!';
+      urlEl.textContent = '';
+      count.innerHTML = res.counts ? '<span>' + res.counts.submitted + '</span> ' + (res.counts.submitted === 1 ? 'person' : 'people') + ' voted' : '';
+    } else {
+      qr.className = 'qr wait';
+      qr.innerHTML = '<div class="pulse">Voting opens<br>after the last pitch</div>';
+      title.textContent = 'Pick your favorites';
+      urlEl.textContent = '';
+      count.textContent = '';
+    }
+    lastStatus = res.status;
+  }
+
+  fit();
+  go(fromHash(), true);
+})();
+</script>
+</body>
+</html>

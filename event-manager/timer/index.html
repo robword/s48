@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>startup48 · Pitch Timer</title>
+<!--
+  Self-contained pitch timer: no external files, ES5 JavaScript.
+  Keys: Space start/pause · R reset · 1/2/3 presets · F fullscreen · M mute · H hide controls
+  URL presets: ?d=300&w=60,20&label=Pitch  (seconds)
+-->
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #0f1222; color: #f5f6fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden; -webkit-user-select: none; user-select: none;
+    -webkit-transition: background-color .4s; transition: background-color .4s;
+  }
+  body.warn1 { background: #8a5a00; }
+  body.warn2 { background: #a3201a; }
+  body.over { background: #6e0f0f; }
+  body.over.flash { background: #b3121b; }
+  #app { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  #label { position: absolute; top: 2vh; left: 0; right: 0; text-align: center; font-size: 4vh; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+  #brand { position: absolute; top: 2vh; left: 2vw; font-family: "Arial Black", Arial, sans-serif; font-weight: 900; font-size: 3vh; }
+  #brand span { color: #ff5a36; }
+  body.warn1 #brand span, body.warn2 #brand span, body.over #brand span { color: #fff; }
+  #time {
+    position: absolute; left: 0; right: 0; top: 50%; text-align: center; line-height: 1;
+    font-weight: 800; white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; font-feature-settings: "tnum";
+  }
+  #next { position: absolute; left: 0; right: 0; bottom: 22vh; text-align: center; font-size: 3.2vh; opacity: .7; }
+  #controls {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 1.5vh 2vw 2vh; text-align: center;
+    background: rgba(0,0,0,.35);
+  }
+  body.hide-controls #controls { display: none; }
+  body.hide-controls #next { bottom: 3vh; }
+  body.hide-controls { cursor: none; }
+  button, input { font: inherit; }
+  button {
+    margin: .4vh .3vw; padding: 1.2vh 1.6vw; font-size: 2.3vh; font-weight: 700;
+    color: #f5f6fa; background: #262c4a; border: 2px solid transparent; border-radius: 8px; cursor: pointer;
+  }
+  button.on { border-color: #ff5a36; }
+  button.primary { background: #ff5a36; color: #fff; min-width: 12vw; }
+  .group { display: inline-block; margin: 0 1vw; vertical-align: middle; }
+  #custom { display: none; margin-top: 1vh; font-size: 2.2vh; }
+  #custom.open { display: block; }
+  #custom input { width: 7em; padding: .5vh .6vw; font-size: 2.2vh; border-radius: 6px; border: 1px solid #2f365a; background: #0f1222; color: #f5f6fa; }
+  #custom input.wide { width: 11em; }
+  #hint { font-size: 1.6vh; opacity: .55; margin-top: .6vh; }
+  #audioNote { position: absolute; top: 8vh; left: 0; right: 0; text-align: center; font-size: 2.2vh; color: #ffc23a; display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="brand">startup<span>48</span></div>
+  <div id="label">Pitch</div>
+  <div id="audioNote">Click anywhere or press a key to enable sound</div>
+  <div id="time">5:00</div>
+  <div id="next"></div>
+  <div id="controls">
+    <div class="group">
+      <button id="p1" data-preset="0">1 · Practice 1:00</button>
+      <button id="p2" data-preset="1">2 · Pitch 5:00</button>
+      <button id="p3" data-preset="2">3 · Q&amp;A 5:00</button>
+      <button id="pc">Custom…</button>
+    </div>
+    <div class="group">
+      <button id="start" class="primary">Start</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="group">
+      <button id="mute">Sound: on</button>
+      <button id="test">Test tone</button>
+      <button id="fs">Fullscreen</button>
+      <button id="hide">Hide</button>
+    </div>
+    <div id="custom">
+      Label <input id="cLabel" class="wide" value="Custom">
+      Duration <input id="cDur" value="3:00" title="m:ss or seconds">
+      Warnings <input id="cWarn" class="wide" value="1:00, 0:30" title="comma separated, m:ss or seconds">
+      <button id="cApply">Apply</button>
+    </div>
+    <div id="hint">Space start/pause · R reset · 1 2 3 presets · F fullscreen · M mute · H hide controls</div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var PRESETS = [
+    { label: 'Practice pitch', duration: 60, warnings: [20, 10] },
+    { label: 'Pitch', duration: 300, warnings: [60, 20] },
+    { label: 'Q&A', duration: 300, warnings: [60, 30] }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var body = document.body;
+  var timeEl = $('time');
+
+  var cfg = null;          // active {label, duration, warnings(desc)}
+  var presetIndex = -1;    // -1 = custom
+  var running = false;
+  var endAt = 0;           // ms timestamp when remaining hits 0
+  var remainingMs = 0;     // used while paused
+  var fired = {};          // warning seconds already sounded; 'zero' for the final buzzer
+  var muted = false;
+  var tickHandle = null;
+  var wakeLock = null;
+
+  /* ---------- storage (optional) ---------- */
+  function store(key, val) {
+    try { if (val === undefined) { return window.localStorage.getItem('s48timer.' + key); } window.localStorage.setItem('s48timer.' + key, val); } catch (e) { }
+    return null;
+  }
+
+  /* ---------- audio ---------- */
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var ctx = null;
+  var fallbackUri = null;
+
+  function ensureAudio() {
+    if (AC && !ctx) { try { ctx = new AC(); } catch (e) { ctx = null; } }
+    if (ctx && ctx.state === 'suspended' && ctx.resume) { ctx.resume(); }
+    updateAudioNote();
+  }
+
+  function updateAudioNote() {
+    $('audioNote').style.display = (ctx && ctx.state === 'suspended') ? 'block' : 'none';
+  }
+
+  // Sequence of [freqHz, durationSec, gapAfterSec]
+  function play(seq) {
+    if (muted) { return; }
+    if (ctx) {
+      var t = ctx.currentTime + 0.02;
+      for (var i = 0; i < seq.length; i++) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = seq[i][0];
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
+        g.gain.setValueAtTime(0.35, t + seq[i][1] - 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + seq[i][1]);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t); o.stop(t + seq[i][1] + 0.02);
+        t += seq[i][1] + seq[i][2];
+      }
+      return;
+    }
+    // Fallback for browsers without Web Audio: a generated WAV beep.
+    try {
+      if (!fallbackUri) { fallbackUri = makeWav(880, 0.25); }
+      var n = seq.length, k = 0;
+      var next = function () { var a = new Audio(fallbackUri); a.play(); if (++k < n) { setTimeout(next, 350); } };
+      next();
+    } catch (e) { }
+  }
+
+  function makeWav(freq, secs) {
+    var rate = 8000, n = Math.floor(rate * secs), bytes = [], i;
+    function u32(v) { bytes.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); }
+    function u16(v) { bytes.push(v & 255, (v >> 8) & 255); }
+    function str(s) { for (var j = 0; j < s.length; j++) { bytes.push(s.charCodeAt(j)); } }
+    str('RIFF'); u32(36 + n); str('WAVE'); str('fmt '); u32(16); u16(1); u16(1); u32(rate); u32(rate); u16(1); u16(8);
+    str('data'); u32(n);
+    for (i = 0; i < n; i++) { bytes.push(Math.sin(2 * Math.PI * freq * i / rate) > 0 ? 220 : 36); }
+    var bin = '';
+    for (i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
+    return 'data:audio/wav;base64,' + window.btoa(bin);
+  }
+
+  var TONE_WARN1 = [[880, 0.25, 0.1]];
+  var TONE_WARN2 = [[988, 0.2, 0.12], [988, 0.2, 0.1]];
+  var TONE_END = [[660, 0.35, 0.08], [660, 0.35, 0.08], [440, 0.9, 0]];
+
+  /* ---------- time helpers ---------- */
+  function parseTime(s) {
+    s = String(s).replace(/\s+/g, '');
+    if (!s) { return NaN; }
+    if (s.indexOf(':') !== -1) {
+      var p = s.split(':');
+      return parseInt(p[0] || '0', 10) * 60 + parseInt(p[1] || '0', 10);
+    }
+    return parseInt(s, 10);
+  }
+
+  function fmt(sec) {
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function now() { return new Date().getTime(); }
+
+  function remaining() { return running ? endAt - now() : remainingMs; }
+
+  /* ---------- display ---------- */
+  function fitText() {
+    var w = window.innerWidth, h = window.innerHeight;
+    var chars = Math.max(4, timeEl.textContent.length);
+    // tabular digits ~0.6em wide; leave room for label and controls
+    var size = Math.min(w * 0.94 / (chars * 0.62), h * (body.className.indexOf('hide-controls') !== -1 ? 0.66 : 0.55));
+    timeEl.style.fontSize = Math.floor(size) + 'px';
+    timeEl.style.marginTop = (-Math.floor(size / 2) - (body.className.indexOf('hide-controls') !== -1 ? 0 : h * 0.06)) + 'px';
+  }
+
+  function setPhase(ph) {
+    var keep = (' ' + body.className + ' ').indexOf(' hide-controls ') !== -1 ? ' hide-controls' : '';
+    body.className = (ph + keep).replace(/^\s+/, '');
+  }
+
+  function render() {
+    var ms = remaining(), text, phase = '', nextText = '';
+    var w = cfg.warnings;
+    if (ms > 0) {
+      var sec = Math.ceil(ms / 1000);
+      text = fmt(sec);
+      if (w.length && sec <= w[w.length - 1]) { phase = 'warn2'; } else if (w.length && sec <= w[0]) { phase = 'warn1'; }
+      for (var i = 0; i < w.length; i++) { if (sec > w[i]) { nextText = 'Next tone at ' + fmt(w[i]); break; } }
+      if (!nextText) { nextText = 'Final buzzer at 0:00'; }
+    } else {
+      var over = Math.floor(-ms / 1000);
+      text = (running || ms < 0) ? '+' + fmt(over) : '0:00';
+      phase = 'over' + ((running && Math.floor(-ms / 500) % 2 === 0) ? ' flash' : '');
+      nextText = 'Time is up';
+    }
+    if (timeEl.textContent !== text) { timeEl.textContent = text; fitText(); }
+    $('next').textContent = nextText;
+    setPhase(phase);
+  }
+
+  function checkTones() {
+    var sec = remaining() / 1000, w = cfg.warnings;
+    for (var i = 0; i < w.length; i++) {
+      if (!fired[w[i]] && sec <= w[i]) {
+        fired[w[i]] = true;
+        // Only sound if we crossed it recently (not when jumping in mid-way).
+        if (sec > w[i] - 2) { play(i === w.length - 1 && w.length > 1 ? TONE_WARN2 : TONE_WARN1); }
+      }
+    }
+    if (!fired.zero && sec <= 0) { fired.zero = true; if (sec > -2) { play(TONE_END); } }
+  }
+
+  function tick() { checkTones(); render(); }
+
+  /* ---------- control ---------- */
+  function load(c, idx) {
+    stop();
+    cfg = { label: c.label, duration: c.duration, warnings: c.warnings.slice().sort(function (a, b) { return b - a; }) };
+    presetIndex = idx;
+    remainingMs = cfg.duration * 1000;
+    fired = {};
+    $('start').textContent = 'Start';
+    $('label').textContent = cfg.label;
+    for (var i = 0; i < 3; i++) { $('p' + (i + 1)).className = i === idx ? 'on' : ''; }
+    $('pc').className = idx === -1 ? 'on' : '';
+    store('last', JSON.stringify({ c: cfg, i: idx }));
+    render();
+    fitText();
+  }
+
+  function start() {
+    ensureAudio();
+    if (running) { return; }
+    // Mark warnings already behind us so resuming doesn't replay them.
+    var sec = remainingMs / 1000;
+    for (var i = 0; i < cfg.warnings.length; i++) { if (sec < cfg.warnings[i]) { fired[cfg.warnings[i]] = true; } }
+    endAt = now() + remainingMs;
+    running = true;
+    tickHandle = setInterval(tick, 100);
+    $('start').textContent = 'Pause';
+    requestWakeLock();
+    tick();
+  }
+
+  function stop() {
+    if (running) { remainingMs = endAt - now(); }
+    running = false;
+    clearInterval(tickHandle);
+    $('start').textContent = remainingMs < cfg_duration_ms() ? 'Resume' : 'Start';
+    releaseWakeLock();
+  }
+
+  function cfg_duration_ms() { return cfg ? cfg.duration * 1000 : 0; }
+
+  function toggle() { if (running) { stop(); render(); } else { start(); } }
+
+  function reset() { load(cfg, presetIndex); }
+
+  function requestWakeLock() {
+    try {
+      if (navigator.wakeLock && navigator.wakeLock.request) {
+        navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }, function () { });
+      }
+    } catch (e) { }
+  }
+  function releaseWakeLock() { try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) { } }
+
+  function toggleFullscreen() {
+    var d = document, el = d.documentElement;
+    var isFs = d.fullscreenElement || d.webkitFullscreenElement || d.msFullscreenElement;
+    if (!isFs) {
+      var r = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (r) { r.call(el); }
+    } else {
+      var x = d.exitFullscreen || d.webkitExitFullscreen || d.msExitFullscreen;
+      if (x) { x.call(d); }
+    }
+  }
+
+  function toggleHide() {
+    if (body.className.indexOf('hide-controls') !== -1) { body.className = body.className.replace(/\s*hide-controls/, ''); } else { body.className += ' hide-controls'; }
+    fitText();
+  }
+
+  function setMuted(m) {
+    muted = m;
+    $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
+    store('muted', muted ? '1' : '0');
+  }
+
+  function applyCustom() {
+    var d = parseTime($('cDur').value);
+    if (!(d > 0)) { alert('Enter a duration like 3:00 or 180'); return; }
+    var parts = $('cWarn').value.split(','), w = [], i;
+    for (i = 0; i < parts.length; i++) {
+      var t = parseTime(parts[i]);
+      if (t > 0 && t < d) { w.push(t); }
+    }
+    var c = { label: $('cLabel').value || 'Custom', duration: d, warnings: w };
+    store('custom', JSON.stringify(c));
+    load(c, -1);
+  }
+
+  /* ---------- wiring ---------- */
+  function on(el, ev, fn) { if (el.addEventListener) { el.addEventListener(ev, fn, false); } else { el.attachEvent('on' + ev, fn); } }
+
+  for (var pi = 0; pi < 3; pi++) {
+    (function (i) { on($('p' + (i + 1)), 'click', function () { load(PRESETS[i], i); }); })(pi);
+  }
+  on($('pc'), 'click', function () { var c = $('custom'); c.className = c.className === 'open' ? '' : 'open'; });
+  on($('cApply'), 'click', applyCustom);
+  on($('start'), 'click', toggle);
+  on($('reset'), 'click', reset);
+  on($('mute'), 'click', function () { setMuted(!muted); });
+  on($('test'), 'click', function () { ensureAudio(); var m = muted; muted = false; play(TONE_WARN1); muted = m; });
+  on($('fs'), 'click', toggleFullscreen);
+  on($('hide'), 'click', toggleHide);
+  on(document, 'click', ensureAudio);
+  on(window, 'resize', fitText);
+  on(document, 'visibilitychange', function () { if (!document.hidden && running) { requestWakeLock(); } });
+
+  on(document, 'keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT') { if (e.keyCode === 13) { applyCustom(); } return; }
+    ensureAudio();
+    var k = e.keyCode;
+    if (k === 32) { toggle(); } else if (k === 82) { reset(); } else if (k === 70) { toggleFullscreen(); } else if (k === 77) { setMuted(!muted); } else if (k === 72) { toggleHide(); } else if (k >= 49 && k <= 51) { load(PRESETS[k - 49], k - 49); } else { return; }
+    if (e.preventDefault) { e.preventDefault(); }
+    if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+  });
+
+  /* ---------- init ---------- */
+  setMuted(store('muted') === '1');
+  try {
+    var cust = JSON.parse(store('custom') || 'null');
+    if (cust) { $('cLabel').value = cust.label; $('cDur').value = fmt(cust.duration); var ws = []; for (var j = 0; j < cust.warnings.length; j++) { ws.push(fmt(cust.warnings[j])); } $('cWarn').value = ws.join(', '); }
+  } catch (e) { }
+
+  var q = window.location.search, qd = /[?&]d=(\d+)/.exec(q);
+  if (qd) {
+    var qw = /[?&]w=([\d,]+)/.exec(q), ql = /[?&]label=([^&]+)/.exec(q), wl = [];
+    if (qw) { var a = qw[1].split(','); for (var x = 0; x < a.length; x++) { if (+a[x] > 0) { wl.push(+a[x]); } } }
+    load({ label: ql ? decodeURIComponent(ql[1].replace(/\+/g, ' ')) : 'Timer', duration: +qd[1], warnings: wl }, -1);
+  } else {
+    var last = null;
+    try { last = JSON.parse(store('last') || 'null'); } catch (e) { }
+    if (last && last.c && last.c.duration > 0) { load(last.c, last.i); } else { load(PRESETS[1], 1); }
+  }
+})();
+</script>
+</body>
+</html>

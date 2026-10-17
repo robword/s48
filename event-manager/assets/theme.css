@@ -1,0 +1,31 @@
+/*
+ * startup48 theme - PLACEHOLDER palette.
+ * Swap these values for the real startup48.co brand colors/fonts in one place.
+ * (The pitch timer is self-contained and repeats a few of these values inline.)
+ */
+:root {
+  --s48-bg: #0f1222;
+  --s48-surface: #1a1f36;
+  --s48-surface-2: #262c4a;
+  --s48-line: #2f365a;
+  --s48-text: #f5f6fa;
+  --s48-muted: #9aa3c0;
+  --s48-accent: #ff5a36;
+  --s48-on-accent: #ffffff;
+  --s48-accent-2: #ffc23a;
+  --s48-good: #34d399;
+  --s48-bad: #f87171;
+  --s48-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --s48-font-display: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+}
+
+html { background: var(--s48-bg); }
+
+/* Text wordmark used until a real logo file is added. */
+.s48-wordmark {
+  font-family: var(--s48-font-display);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--s48-text);
+}
+.s48-wordmark span { color: var(--s48-accent); }
