@@ -54,13 +54,15 @@
   .logos div { height: 200px; border-radius: 16px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #8a8580; }
 
   /* schedule: one brand tile color per day */
-  .schedule { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  .schedule { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
   .day { background: var(--s48-surface); border-radius: 16px; overflow: hidden; }
-  .day h3 { font-family: var(--s48-font-heading); font-weight: 700; font-size: 50px; margin: 0; padding: 22px 32px; color: #fff; }
-  .day table { width: calc(100% - 64px); margin: 14px 32px 26px; border-collapse: collapse; }
-  .day td { font-size: 30px; padding: 9px 0; vertical-align: top; border-top: 1px solid var(--s48-line); }
+  .day h3 { font-family: var(--s48-font-heading); font-weight: 700; font-size: 48px; margin: 0; padding: 18px 30px; color: #fff; }
+  .day h3 { font-variant-numeric: lining-nums; }
+  .day h3 .dayno { font-weight: 500; opacity: .85; margin-right: .45em; }
+  .day table { width: calc(100% - 60px); margin: 10px 30px 22px; border-collapse: collapse; }
+  .day td { font-size: 29px; padding: 8px 0; vertical-align: top; border-top: 1px solid var(--s48-line); }
   .day tr:first-child td { border-top: 0; }
-  .day td:first-child { width: 160px; white-space: nowrap; padding-right: 16px; color: var(--s48-muted); font-variant-numeric: tabular-nums; }
+  .day td:first-child { width: 142px; white-space: nowrap; padding-right: 16px; color: var(--s48-muted); font-variant-numeric: tabular-nums; }
 
   /* steps: the site's colored tiles */
   .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-radius: 16px; overflow: hidden; }
@@ -133,36 +135,39 @@
     <h2>Schedule</h2>
     <div class="schedule">
       <div class="day">
-        <h3 class="c-orange">Friday</h3>
+        <h3 class="c-orange"><span class="dayno">Day 1</span>Friday</h3>
         <table>
-          <tr><td>5:30 pm</td><td>Check-in &amp; dinner</td></tr>
-          <tr><td>6:30 pm</td><td>Welcome</td></tr>
-          <tr><td>7:00 pm</td><td>Opening pitches</td></tr>
-          <tr><td>8:15 pm</td><td>Voting</td></tr>
-          <tr><td>8:45 pm</td><td>Team formation</td></tr>
-          <tr><td>9:30 pm</td><td>Start building</td></tr>
+          <tr><td>5:00 pm</td><td>Check-in</td></tr>
+          <tr><td>5:30 pm</td><td>Dinner</td></tr>
+          <tr><td>6:00 pm</td><td>Welcome &amp; Speaker</td></tr>
+          <tr><td>6:30 pm</td><td>Introductions</td></tr>
+          <tr><td>7:15 pm</td><td>Pitches Start</td></tr>
+          <tr><td>8:15 pm</td><td>Cast Your Vote</td></tr>
+          <tr><td>8:25 pm</td><td>Form Teams</td></tr>
         </table>
       </div>
       <div class="day">
-        <h3 class="c-teal">Saturday</h3>
+        <h3 class="c-teal"><span class="dayno">Day 2</span>Saturday</h3>
         <table>
-          <tr><td>8:00 am</td><td>Breakfast</td></tr>
-          <tr><td>9:00 am</td><td>Work session</td></tr>
+          <tr><td>8:00 am</td><td>Doors Open/Breakfast</td></tr>
+          <tr><td>9:00 am</td><td>Opening Speech</td></tr>
+          <tr><td>9:30 am</td><td>Interviews/Work Time</td></tr>
           <tr><td>12:00 pm</td><td>Lunch</td></tr>
-          <tr><td>1:00 pm</td><td>Mentor office hours</td></tr>
-          <tr><td>6:00 pm</td><td>Dinner &amp; check-in</td></tr>
-          <tr><td>7:00 pm</td><td>Work late</td></tr>
+          <tr><td>12:30 pm</td><td>Mentors</td></tr>
+          <tr><td>5:30 pm</td><td>Dinner</td></tr>
+          <tr><td>6:00 pm</td><td>Dry Runs &amp; Work Time</td></tr>
         </table>
       </div>
       <div class="day">
-        <h3 class="c-slate">Sunday</h3>
+        <h3 class="c-slate"><span class="dayno">Day 3</span>Sunday</h3>
         <table>
-          <tr><td>8:00 am</td><td>Breakfast</td></tr>
-          <tr><td>9:00 am</td><td>Final push</td></tr>
-          <tr><td>12:00 pm</td><td>Lunch &amp; dry runs</td></tr>
-          <tr><td>3:00 pm</td><td>Final pitches</td></tr>
-          <tr><td>5:00 pm</td><td>Judging</td></tr>
-          <tr><td>5:45 pm</td><td>Awards</td></tr>
+          <tr><td>8:00 am</td><td>Doors Open/Breakfast</td></tr>
+          <tr><td>8:30 am</td><td>Work Time</td></tr>
+          <tr><td>9:00 am</td><td>Tech Check + Mentors</td></tr>
+          <tr><td>11:30 am</td><td>Lunch</td></tr>
+          <tr><td>12:30 pm</td><td>Final Pitches</td></tr>
+          <tr><td>1:45 pm</td><td>Judging &amp; Awards</td></tr>
+          <tr><td>2:00 pm</td><td>Networking Social</td></tr>
         </table>
       </div>
     </div>
