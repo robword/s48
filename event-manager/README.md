@@ -37,10 +37,14 @@ Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5
 **3** Q&A 5:00 (1:00, 0:30), or **Custom…** (saved in the browser).
 
 - Keys: `Space` start/pause · `R` reset · `1` `2` `3` presets · `F` fullscreen · `M` mute · `H` hide controls
-- One beep at the first warning, a double beep at the last warning, and a buzzer at 0:00. After that it counts up in red (`+0:12`).
-- The background turns amber after the first warning and red after the last.
+- Sounds are re-created from pitchtimer.com's cues (synthesized in the browser, no audio files):
+  - **First warning:** a soft sine "bonk" (C5).
+  - **Last warning:** a bright bell-like "ping".
+  - **0:00:** a ~3.6 s noise burst.
+  After 0:00 the timer counts up in red (`+0:12`). Custom timers: the last warning time gets the ping, earlier ones the bonk.
+- The background turns amber after the first warning, orange after the last, and red in overtime.
 - Bookmarkable: `timer/?d=180&w=60,30&label=Demo` (values in seconds).
-- Click once (or press any key) before the first pitch so the browser allows sound. Use **Test tone** to check the speakers.
+- Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays all three cues) and the **Volume** slider to check levels.
 - The timer works from the clock rather than counting ticks, so it stays accurate if the tab is in the background. It also keeps the screen awake where the browser supports it.
 
 ## Judging form
