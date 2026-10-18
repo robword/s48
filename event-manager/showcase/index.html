@@ -76,6 +76,7 @@
   var SPOT = { cx: 470, cy: 500, size: 400 };                     // spotlight circle
   var FLY = 900;                                                  // ms for a face to fly out or back
   var data = null, scheduleHTML = null, step = 0, paused = false;   // step: id of the slide now showing
+  var current = null, redo = false, at = null;   // slide on screen, whether to redraw it, who's in the spotlight
 
   function fit() { var s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = 'scale(' + s + ') translate(-50%, -50%)'; }
   fit(); addEventListener('resize', fit);
@@ -141,7 +142,7 @@
     return Promise.all(urls.map(function (u) { return new Promise(function (r) { var i = new Image(); i.onload = i.onerror = r; i.src = u; setTimeout(r, 4000); }); }));
   }
 
-  async function meetSlide(group, title, people, badgeText, myRun) {
+  async function meetSlide(group, title, people, badgeText, myRun, startId) {
     await preload(people.filter(function (p) { return p.photo_url; }).map(function (p) { return p.photo_url; }));
     var s = frame('Meet the', title), slots = gridSlots(people.length), faces = [];
     people.forEach(function (p, i) {
@@ -157,8 +158,9 @@
     // Faces pop in one after another.
     for (var i = 0; i < faces.length; i++) { (function (f, d) { setTimeout(function () { f.classList.remove('hidden'); }, d); })(faces[i], 300 + i * 70); }
     await wait(900 + faces.length * 70, myRun);
-    var cap = null;
-    for (i = 0; i < people.length; i++) {
+    var cap = null, first = Math.max(0, people.findIndex(function (p) { return p.id === startId; }));
+    for (i = first; i < people.length; i++) {
+      at = people[i].id;
       var f = faces[i], sl = slots[i], k = SPOT.size / sl.size;
       f.classList.add('out');
       f.style.transform = 'translate(' + (SPOT.cx - sl.cx) + 'px,' + (SPOT.cy - sl.cy) + 'px) scale(' + k + ')';
@@ -221,33 +223,70 @@
     }
   }
 
-  // One pass through the loop; each step is skipped when it has nothing to show.
-  async function cycle() {
-    await load();
-    var steps = [];
+  // The slides that have something to show right now, in loop order. sig captures everything a
+  // slide displays, so a change to it can redraw that slide while it's on screen.
+  function buildSteps() {
     if (!data) {
-      steps.push(function (id) { return emptySlide('Can’t reach the showcase data. Retrying…', id); });
-    } else {
-      var P = data.people, m = mentorsToday(), i = data.info;
-      if (P.organizers.length) { steps.push(function (id) { return meetSlide('organizers', 'Organizers', P.organizers, '', id); }); }
-      if (i.wifi_name) { steps.push(function (id) { return wifiSlide(id); }); }
-      if (P.judges.length) { steps.push(function (id) { return meetSlide('judges', 'Judges', P.judges, '', id); }); }
-      if (scheduleHTML) { steps.push(function (id) { return scheduleSlide(id); }); }
-      if (m.list.length) { steps.push(function (id) { return meetSlide('mentors', m.label ? m.label.replace(' mentors', ' Mentors') : 'Mentors', m.list, i.mentor_hours, id); }); }
-      if (i.announce_title && i.announce_body) { steps.push(function (id) { return announceSlide(id); }); }
-      if (!P.organizers.length && !P.judges.length && !m.list.length) {
-        steps.unshift(function (id) { return emptySlide('Add organizers, judges and mentors in the operator console. They’ll appear here on the next loop.', id); });
-      }
+      return [{ key: 'empty', sig: 'offline', run: function (id) { return emptySlide('Can’t reach the showcase data. Retrying…', id); } }];
     }
-    for (var k = 0; k < steps.length; k++) {
-      try { await steps[k](++step); } catch (e) { if (e !== 'skip') { throw e; } }   // a skip just moves on
+    var P = data.people, m = mentorsToday(), i = data.info, steps = [];
+    function add(key, inputs, run) { steps.push({ key: key, sig: JSON.stringify([i.header, i.seconds, inputs]), run: run }); }
+    if (!P.organizers.length && !P.judges.length && !m.list.length) {
+      add('empty', 0, function (id) { return emptySlide('Add organizers, judges and mentors in the operator console. They’ll appear here automatically.', id); });
+    }
+    if (P.organizers.length) { add('organizers', P.organizers, function (id, from) { return meetSlide('organizers', 'Organizers', P.organizers, '', id, from); }); }
+    if (i.wifi_name) { add('wifi', [i.wifi_name, i.wifi_pass], wifiSlide); }
+    if (P.judges.length) { add('judges', P.judges, function (id, from) { return meetSlide('judges', 'Judges', P.judges, '', id, from); }); }
+    if (scheduleHTML) { add('schedule', i.mentor_hours, scheduleSlide); }
+    if (m.list.length) {
+      var t = m.label ? m.label.replace(' mentors', ' Mentors') : 'Mentors';
+      add('mentors', [t, m.list, i.mentor_hours], function (id, from) { return meetSlide('mentors', t, m.list, i.mentor_hours, id, from); });
+    }
+    if (i.announce_title && i.announce_body) { add('announce', [i.announce_title, i.announce_body], announceSlide); }
+    return steps;
+  }
+  var ORDER = ['empty', 'organizers', 'wifi', 'judges', 'schedule', 'mentors', 'announce'];
+
+  // Re-read the data before every slide, then show the one after the last (or the same one again
+  // when it was interrupted to redraw with new data).
+  async function main() {
+    var version = await deployedVersion(), newVersion = null;
+    setInterval(async function () {   // a new deploy reloads the page at the next slide change
+      var v = await deployedVersion(); if (v && version && v !== version) { newVersion = v; }
+    }, 60000);
+    setInterval(watch, 5000);
+    for (;;) {
+      if (newVersion) { location.replace(location.pathname + '?v=' + encodeURIComponent(newVersion)); return; }
+      await load();
+      var steps = buildSteps(), next = null, from = null;
+      if (current && redo) {
+        next = steps.find(function (st) { return st.key === current.key; });
+        from = at;
+      }
+      if (!next) {
+        var after = current ? ORDER.indexOf(current.key) : -1;
+        next = steps.find(function (st) { return ORDER.indexOf(st.key) > after; }) || steps[0];
+      }
+      redo = false; at = null; current = next;
+      try { await next.run(++step, from); } catch (e) {
+        if (e !== 'skip') { console.error(e); await new Promise(function (r) { setTimeout(r, 3000); }); }   // a skip just moves on
+      }
     }
   }
 
-  async function main() {
-    for (;;) {
-      try { await cycle(); } catch (e) { console.error(e); await new Promise(function (r) { setTimeout(r, 3000); }); }
-    }
+  // Every few seconds: if what's on screen changed in the console, redraw it in place.
+  async function watch() {
+    if (!current || redo) { return; }
+    await load();
+    var now = buildSteps().find(function (st) { return st.key === current.key; });
+    if (!now || now.sig !== current.sig) { redo = true; step++; }
+  }
+
+  async function deployedVersion() {
+    try {
+      var r = await fetch('../version.json?_=' + Date.now(), { cache: 'no-store' });
+      return r.ok ? (await r.json()).version || null : null;
+    } catch (e) { return null; }
   }
 
   document.addEventListener('keydown', function (e) {
