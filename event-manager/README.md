@@ -109,7 +109,7 @@ Both are outside the deploy sync, so a deploy never deletes them.
    - opened but not submitted
    - submitted
    - % of openers who submitted
-   - the live ranking (ties share a rank)
+   - the live ranking (ties share a rank, shown as T2; ideas with no votes show –)
 6. Click **Close voting**. **Reopen** is available. **Reset** starts a fresh round. Old round files stay in `data/rounds/` and are never deleted.
 
 ### Storage and concurrency

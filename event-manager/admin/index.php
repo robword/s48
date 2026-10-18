@@ -80,7 +80,7 @@ $csrf = s48_csrf_token();
   table { width: 100%; border-collapse: collapse; }
   td, th { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--s48-line); }
   th { color: var(--s48-muted); font-weight: 600; font-size: 13px; }
-  td.rk { width: 40px; font-family: var(--s48-font-display); font-weight: 700; font-size: 18px; }
+  td.rk { width: 48px; font-family: var(--s48-font-display); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   td.vt { width: 60px; font-family: var(--s48-font-display); font-weight: 700; font-size: 18px; text-align: right; }
   td.vr { width: 80px; color: var(--s48-muted); text-align: right; font-size: 13px; }
   td.bar { width: 35%; }
@@ -395,9 +395,12 @@ $csrf = s48_csrf_token();
       er.appendChild(ec);
       tb.appendChild(er);
     }
+    var perRank = {};
+    r.ranking.forEach(function (x) { perRank[x.rank] = (perRank[x.rank] || 0) + 1; });
     if (st !== 'setup') r.ranking.forEach(function (x) {
       var tr = el('tr');
-      tr.appendChild(el('td', 'rk', x.rank));
+      // Ties show as T2; ideas with no votes aren't ranked.
+      tr.appendChild(el('td', 'rk', x.votes === 0 ? '–' : (perRank[x.rank] > 1 ? 'T' : '') + x.rank));
       tr.appendChild(el('td', '', x.n + '. ' + x.name));
       var bar = el('td', 'bar'), fill = el('div', 'barfill');
       fill.style.width = (100 * x.votes / max) + '%';
