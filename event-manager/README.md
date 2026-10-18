@@ -44,7 +44,8 @@ Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5
   After 0:00 the timer counts up in red (`+0:12`). Custom timers: the last warning time gets the ping, earlier ones the bonk.
 - The background turns amber after the first warning, orange after the last, and red in overtime.
 - Bookmarkable: `timer/?d=180&w=60,30&label=Demo` (values in seconds).
-- Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays all three cues) and the **Volume** slider to check levels.
+- Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays all three cues and turns sound on if it was off) and the **Volume** slider to check levels.
+- Cues are scheduled on the audio clock when you press Start, so they play on time even if the tab is in the background or the screen dims. A "Sound is off" note shows on the timer whenever sound is muted (`M` toggles it).
 - The timer works from the clock rather than counting ticks, so it stays accurate if the tab is in the background. It also keeps the screen awake where the browser supports it.
 
 ## Judging form
