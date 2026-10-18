@@ -127,7 +127,7 @@
   function captionFor(group, p) {
     var c = el('div', 'cap');
     c.appendChild(el('div', 'nm', p.name));
-    if (p.title) { c.appendChild(el('div', 'ln', p.title)); }
+    if (p.title && group !== 'organizers') { c.appendChild(el('div', 'ln', p.title)); }
     if (p.org) { c.appendChild(el('div', 'ln org', p.org)); }
     if (group === 'organizers' && p.first_year) { c.appendChild(el('div', 'sk', 'First Startup 48: ' + p.first_year)); }
     if (group === 'mentors' && p.skills) { c.appendChild(el('div', 'sk', p.skills)); }

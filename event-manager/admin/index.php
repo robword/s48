@@ -131,6 +131,7 @@ $csrf = s48_csrf_token();
   .crop-box .muted { text-align: center; }
   .fields { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .f.check { font-size: 14px; color: var(--s48-text); }
+  .fields.org-mentor [data-mentor] { margin-left: 24px; }
   .days { display: flex; gap: 16px; font-size: 14px; color: var(--s48-text); }
   .modal .actions { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
   .modal .actions .spacer { flex: 1; }
@@ -591,8 +592,18 @@ $csrf = s48_csrf_token();
     $('p-name').focus();
   }
   // A field shows when it belongs to the group, or it's a mentor field and this organizer also mentors.
+  // For organizers the mentor fields sit under the "Also mentoring" box; elsewhere they go back in place.
+  var mentorFields = [].slice.call(document.querySelectorAll('#personForm [data-mentor]')).map(function (n) {
+    return { node: n, home: n.nextElementSibling };
+  });
   function showFields() {
     var g = edit.group, m = g === 'organizers' && $('p-mentoring').checked;
+    $('personForm').querySelector('.fields').classList.toggle('org-mentor', g === 'organizers');
+    if (g === 'organizers') {
+      mentorFields.forEach(function (f) { $('personForm').querySelector('.fields').appendChild(f.node); });
+    } else {
+      mentorFields.slice().reverse().forEach(function (f) { f.home.parentNode.insertBefore(f.node, f.home); }); // reverse, since a field's home can be the next mentor field
+    }
     document.querySelectorAll('#personForm [data-for]').forEach(function (n) {
       var on = n.getAttribute('data-for').split(' ').indexOf(g) >= 0 || (m && n.hasAttribute('data-mentor'));
       n.style.display = on ? '' : 'none';
