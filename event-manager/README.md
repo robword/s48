@@ -80,6 +80,7 @@ operator clicks **Start voting**, then shows the QR code, the short link and a l
   Replacing or deleting a person removes the old file.
 - The **Event info** form sets the header line, Wi-Fi name and password, mentor hours, an announcement, seconds per person (3–15) and which mentors to show.
   - **Auto** shows Saturday's mentors on Saturday, Sunday's on Sunday, and everyone otherwise.
+    A mentor with neither day ticked shows on both days.
   - **Saturday**, **Sunday** and **All** override that.
 
 **Showing:** open `showcase/` on the venue screen and press `F` for fullscreen.

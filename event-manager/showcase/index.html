@@ -202,7 +202,8 @@
     if (mode === 'auto') { mode = d === 6 ? 'sat' : d === 0 ? 'sun' : 'all'; }
     // Organizers who also mentor follow the regular mentors.
     var all = data.people.mentors.concat(data.people.organizers.filter(function (p) { return p.mentoring; }));
-    var list = all.filter(function (p) { return mode === 'all' || p[mode]; });
+    // Someone with no day ticked counts as both days rather than vanishing from the loop.
+    var list = all.filter(function (p) { return mode === 'all' || p[mode] || (!p.sat && !p.sun); });
     return { list: list, label: mode === 'sat' ? 'Saturday mentors' : mode === 'sun' ? 'Sunday mentors' : '' };
   }
 
