@@ -63,6 +63,8 @@
   #custom input { width: 7em; padding: .5vh .6vw; font-size: 2.2vh; border-radius: 6px; border: 1px solid #3a6c88; background: #1b3c52; color: #ffffff; }
   #custom input.wide { width: 11em; }
   #hint { font-size: 1.6vh; opacity: .55; margin-top: .6vh; }
+  #endWrap { display: inline-block; margin: .4vh .6vw; font-size: 2.1vh; font-weight: 700; vertical-align: middle; }
+  #endSound { font: inherit; font-weight: 700; font-size: 2vh; padding: .6vh .5vw; border-radius: 8px; border: 2px solid transparent; background: #2f617d; color: #ffffff; }
   #volWrap { display: inline-block; margin: .4vh .6vw; font-size: 2.1vh; font-weight: 700; vertical-align: middle; }
   #vol { width: 9vw; min-width: 90px; vertical-align: middle; accent-color: #ee512b; }
   #diag { position: absolute; left: 1vw; right: 1vw; bottom: 1vh; z-index: 5; padding: .6vh 1vw; font: 1.6vh/1.4 Menlo, Consolas, monospace; background: rgba(0,0,0,.75); color: #fff; border-radius: 6px; }
@@ -91,6 +93,7 @@
     <div class="group">
       <button id="mute">Sound: on</button>
       <label id="volWrap">Volume <input id="vol" type="range" min="0" max="100" step="5" value="80" aria-label="Volume"></label>
+      <label id="endWrap">End sound <select id="endSound" aria-label="End sound"></select></label>
       <button id="test">Test sounds</button>
       <button id="fs">Fullscreen</button>
       <button id="hide">Hide</button>
@@ -141,9 +144,11 @@
   // plays when an iPhone/iPad is on silent. Web Audio is used only if an <audio> element refuses.
   var CUE_RATE = 22050;     // ample for these sounds (highest partial 4.9 kHz)
   var END_GAIN = 0.75;      // level trim so the noise cue matches the original's loudness
-  var CUE_NAMES = ['warning', 'danger', 'end'];
+  // End-of-time sounds the operator can choose from (first = default).
+  var END_SOUNDS = [['bowl', 'Singing bowl'], ['airhorn', 'Air horn'], ['levelup', '8-bit level complete'], ['powerdown', 'Power-down sweep'], ['noise', 'Original noise burst']];
+  var endSound = 'bowl';
   var volume = 0.8;
-  var cues = null;          // name -> { pcm: Float32Array, url: string, el: HTMLAudioElement|null }
+  var cues = {};            // sound -> { pcm: Float32Array, url: string, el: HTMLAudioElement|null, ready: bool }
   var unlocked = false;
   var AC = window.AudioContext || window.webkitAudioContext;
   var ctx = null, master = null;
@@ -196,9 +201,91 @@
     return y;
   }
 
-  // Render one cue to samples at CUE_RATE (numbers from pitch-timer-tones.js).
+  // Adds a decaying sine partial: linear attack, optional hold, then exponential decay (time constant tau).
+  function partial(out, start, f, amp, attack, tau, hold) {
+    var r = CUE_RATE, s0 = Math.floor(start * r), w = 2 * Math.PI * f / r;
+    hold = hold || 0;
+    for (var i = 0; s0 + i < out.length; i++) {
+      var t = i / r, a = t < attack ? t / attack : (t < attack + hold ? 1 : Math.exp(-(t - attack - hold) / tau));
+      if (t > attack + hold && a < 1e-4) { break; }
+      out[s0 + i] += amp * a * Math.sin(w * i);
+    }
+  }
+
+  // Loudness-match the end sounds (loudest 50 ms at a common level, never clipping) and fade the last 0.3 s.
+  function normalize(x, target) {
+    var r = CUE_RATE, win = Math.floor(0.05 * r), best = 0, peak = 0, i, j;
+    for (i = 0; i < x.length; i++) { peak = Math.max(peak, Math.abs(x[i])); }
+    for (i = 0; i + win <= x.length; i += win) { var sum = 0; for (j = i; j < i + win; j++) { sum += x[j] * x[j]; } best = Math.max(best, Math.sqrt(sum / win)); }
+    var g = Math.min(target / best, 0.92 / peak), fade = Math.floor(0.3 * r);
+    for (i = 0; i < x.length; i++) { x[i] *= g * (i > x.length - fade ? (x.length - i) / fade : 1); }
+    return x;
+  }
+
+  // Sum of harmonics of a sawtooth-like tone at phase ph, kept below `limit` Hz to avoid aliasing.
+  function saw(ph, f, limit, odd) {
+    var v = 0;
+    for (var h = 1; h * f < limit && h <= 40; h += odd ? 2 : 1) { v += Math.sin(h * ph) / h; }
+    return v;
+  }
+
+  var END_SYNTHS = {
+    // Singing bowl: one strike, three partials, each doubled 1.6 Hz apart for the slow wavering beat.
+    bowl: function () {
+      var x = new Float32Array(Math.floor(4.4 * CUE_RATE));
+      var P = [[1, 1, 3.5], [2.71, 0.45, 2.2], [5.15, 0.18, 1.2]];
+      for (var k = 0; k < P.length; k++) {
+        partial(x, 0, 392 * P[k][0], P[k][1] * 0.55, 0.003, P[k][2]);
+        partial(x, 0, 392 * P[k][0] + 1.6, P[k][1] * 0.45, 0.003, P[k][2]);
+      }
+      return normalize(x, 0.25);
+    },
+    // Air horn: two blasts of three detuned sawtooth voices with a slight pitch scoop.
+    airhorn: function () {
+      var r = CUE_RATE, x = new Float32Array(Math.floor(1.6 * r)), blasts = [[0, 0.5], [0.65, 1.5]], ph = [0, 0, 0], base = [440, 554.37, 446];
+      for (var i = 0; i < x.length; i++) {
+        var t = i / r, on = 0, st = 0;
+        for (var b = 0; b < blasts.length; b++) {
+          if (t >= blasts[b][0] && t < blasts[b][1]) { on = Math.min(1, (t - blasts[b][0]) / 0.015, (blasts[b][1] - t) / 0.05); st = t - blasts[b][0]; }
+        }
+        if (!on) { continue; }
+        var bend = 1 - 0.04 * Math.exp(-st / 0.05), v = 0;
+        for (var k = 0; k < 3; k++) { var f = base[k] * bend; ph[k] += 2 * Math.PI * f / r; v += saw(ph[k], f, 4500); }
+        x[i] = on * v * 0.3;
+      }
+      return normalize(biquad(x, 'lowpass', 3500, -3.01, r), 0.22);
+    },
+    // 8-bit level complete: square-wave arpeggio G-C-E-G into a held C-E chord with vibrato.
+    levelup: function () {
+      var r = CUE_RATE, x = new Float32Array(Math.floor(1.4 * r));
+      function sq(start, d, f, a, vib) {
+        var s0 = Math.floor(start * r), n = Math.floor(d * r), ph = 0;
+        for (var i = 0; i < n && s0 + i < x.length; i++) {
+          var t = i / r, ff = f * (1 + (vib ? 0.006 * Math.sin(2 * Math.PI * 6 * t) * Math.min(1, t / 0.15) : 0));
+          ph += 2 * Math.PI * ff / r;
+          x[s0 + i] += a * saw(ph, ff, 7000, true) * Math.min(1, t / 0.004, (d - t) / 0.03);
+        }
+      }
+      sq(0, 0.075, 783.99, 0.5); sq(0.08, 0.075, 1046.5, 0.5); sq(0.16, 0.075, 1318.5, 0.5); sq(0.24, 0.075, 1568, 0.5);
+      sq(0.34, 0.75, 1046.5, 0.4, true); sq(0.34, 0.75, 1318.5, 0.3, true);
+      return normalize(x, 0.22);
+    },
+    // Power-down sweep: a sawtooth sliding from 880 Hz down to 165 Hz.
+    powerdown: function () {
+      var r = CUE_RATE, dur = 1.35, x = new Float32Array(Math.floor(dur * r)), ph = 0;
+      for (var i = 0; i < x.length; i++) {
+        var t = i / r, f = 880 * Math.pow(165 / 880, Math.min(1, t / 1.15));
+        ph += 2 * Math.PI * f / r;
+        x[i] = 0.5 * saw(ph, f, 5000) * Math.min(1, t / 0.01, (dur - t) / 0.2);
+      }
+      return normalize(biquad(x, 'lowpass', 3200, -3.01, r), 0.22);
+    }
+  };
+
+  // Render one cue to samples at CUE_RATE (warning, danger and noise from pitch-timer-tones.js).
   function synth(name) {
     var r = CUE_RATE, n, i, out, env;
+    if (END_SYNTHS[name]) { return END_SYNTHS[name](); }
     if (name === 'warning') {
       // One clean sine at C5; instant attack, smooth exponential decay, ~0.8 s audible.
       n = Math.floor(0.9 * r); out = new Float32Array(n);
@@ -216,7 +303,7 @@
       }
       return out;
     }
-    // end: band-passed (800-2400 Hz) noise with ~25 Hz flutter; fades in after 150 ms, out by ~3.65 s.
+    // noise (the original end cue): band-passed (800-2400 Hz) noise with ~25 Hz flutter; fades in after 150 ms, out by ~3.65 s.
     var dur = 3.8, rand = mulberry32(8744);
     n = Math.floor(dur * r);
     // White noise spreads its power over 0..rate/2, so scale to the band energy the original had
@@ -252,35 +339,37 @@
     return 'data:audio/wav;base64,' + window.btoa(bin);
   }
 
-  function buildCues() {
-    if (cues) { return; }
-    cues = {};
-    for (var i = 0; i < CUE_NAMES.length; i++) {
-      var name = CUE_NAMES[i], pcm = synth(name), el = null, url = wavUrl(pcm, CUE_RATE);
+  // Renders a sound on first use and gives it its own <audio> element.
+  function getCue(name) {
+    if (!cues[name]) {
+      var pcm = synth(name), el = null, url = wavUrl(pcm, CUE_RATE);
       try { el = new Audio(); el.preload = 'auto'; el.src = url; if (el.load) { el.load(); } } catch (e) { el = null; }
-      cues[name] = { pcm: pcm, url: url, el: el };
+      cues[name] = { pcm: pcm, url: url, el: el, ready: false };
     }
+    return cues[name];
   }
+
+  // The sounds the timer can play right now: both warnings and the chosen end sound.
+  function buildCues() { getCue('warning'); getCue('danger'); getCue(endSound); }
 
   // Must run inside a click/tap/keypress: browsers (iOS especially) only allow sound to start
   // from a user gesture, so each <audio> element is played silently once to unlock it.
   function unlockAudio() {
     buildCues();
-    if (!unlocked) {
-      unlocked = true;
-      for (var i = 0; i < CUE_NAMES.length; i++) {
-        var el = cues[CUE_NAMES[i]].el;
-        if (!el) { continue; }
-        try {
-          el.muted = true;
-          var p = el.play();
-          (function (el) {
-            // Skip if a real cue has already claimed this element (playCue unmutes it first).
-            var done = function () { if (el.muted) { try { el.pause(); el.currentTime = 0; } catch (e) { } el.muted = false; } };
-            if (p && p.then) { p.then(done, function () { el.muted = false; }); } else { done(); }
-          })(el);
-        } catch (e) { el.muted = false; }
-      }
+    unlocked = true;
+    for (var key in cues) {
+      if (!cues.hasOwnProperty(key) || cues[key].ready || !cues[key].el) { continue; }
+      cues[key].ready = true;
+      var el = cues[key].el;
+      try {
+        el.muted = true;
+        var p = el.play();
+        (function (el) {
+          // Skip if a real cue has already claimed this element (playCue unmutes it first).
+          var done = function () { if (el.muted) { try { el.pause(); el.currentTime = 0; } catch (e) { } el.muted = false; } };
+          if (p && p.then) { p.then(done, function () { el.muted = false; }); } else { done(); }
+        })(el);
+      } catch (e) { el.muted = false; }
     }
     // Prepare the Web Audio fallback in the same gesture.
     if (AC && !ctx) {
@@ -300,7 +389,7 @@
   function playWebAudio(name) {
     if (!ctx || !master) { return false; }
     try {
-      var c = cues[name], buf = ctx.createBuffer(1, c.pcm.length, CUE_RATE);
+      var c = getCue(name), buf = ctx.createBuffer(1, c.pcm.length, CUE_RATE);
       if (buf.copyToChannel) { buf.copyToChannel(c.pcm, 0); } else { buf.getChannelData(0).set(c.pcm); }
       var src = ctx.createBufferSource();
       src.buffer = buf;
@@ -315,8 +404,7 @@
   }
 
   function playCue(name) {
-    buildCues();
-    var c = cues[name], el = c.el;
+    var c = getCue(name), el = c.el;
     diag.last = name + ' at ' + new Date().toLocaleTimeString();
     if (!el) { playWebAudio(name); updateDiag(); return; }
     try {
@@ -344,13 +432,14 @@
   // Play a cue now, or `delay` seconds from now.
   function play(name, delay) {
     if (muted) { return; }
+    if (name === 'end') { name = endSound; }
     if (delay) { setTimeout(function () { if (!muted) { playCue(name); } }, delay * 1000); } else { playCue(name); }
   }
 
   function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
     if (master) { master.gain.value = volume; }
-    if (cues) { for (var k in cues) { if (cues.hasOwnProperty(k) && cues[k].el) { cues[k].el.volume = volume; } } }
+    for (var k in cues) { if (cues.hasOwnProperty(k) && cues[k].el) { cues[k].el.volume = volume; } }
     $('vol').value = Math.round(volume * 100);
     store('volume', String(volume));
   }
@@ -374,7 +463,7 @@
     if (d.style.display === 'none') { return; }
     d.textContent = 'Audio: ' + diag.path + ' | unlocked: ' + (unlocked ? 'yes' : 'no') +
       ' | Web Audio: ' + (ctx ? ctx.state : (AC ? 'not started' : 'unsupported')) +
-      ' | sound: ' + (muted ? 'off' : 'on') + ', volume ' + Math.round(volume * 100) + '%' +
+      ' | sound: ' + (muted ? 'off' : 'on') + ', volume ' + Math.round(volume * 100) + '%, end: ' + endSound +
       ' | last cue: ' + diag.last + (diag.error ? ' | last error: ' + diag.error : '');
   }
 
@@ -578,6 +667,7 @@
 
   on(document, 'keydown', function (e) {
     var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'SELECT') { return; }
     var isRange = tag === 'INPUT' && e.target.type === 'range';
     if (tag === 'INPUT' && !isRange) { if (e.keyCode === 13) { applyCustom(); } return; }
     // The volume slider keeps its arrow keys; every other shortcut still works while it has focus.
@@ -591,6 +681,25 @@
 
   /* ---------- init ---------- */
   setMuted(store('muted') === '1');
+  (function () {
+    var sel = $('endSound'), saved = store('endSound');
+    for (var i = 0; i < END_SOUNDS.length; i++) {
+      var o = document.createElement('option');
+      o.value = END_SOUNDS[i][0]; o.text = END_SOUNDS[i][1];
+      sel.appendChild(o);
+      if (END_SOUNDS[i][0] === saved) { endSound = saved; }
+    }
+    sel.value = endSound;
+    // Choosing a sound plays it, and unlocks it within this gesture for later.
+    on(sel, 'change', function () {
+      endSound = sel.value;
+      store('endSound', endSound);
+      unlockAudio();
+      if (!muted) { playCue(endSound); }
+      updateDiag();
+      sel.blur();
+    });
+  })();
   var savedVol = parseFloat(store('volume'));
   setVolume(isNaN(savedVol) ? 0.8 : savedVol);
   try {

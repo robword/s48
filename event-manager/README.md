@@ -40,11 +40,11 @@ Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5
 - Sounds are re-created from pitchtimer.com's cues (synthesized in the browser, no audio files):
   - **First warning:** a soft sine "bonk" (C5).
   - **Last warning:** a bright bell-like "ping".
-  - **0:00:** a ~3.6 s noise burst.
+  - **0:00:** the **End sound** chosen on the timer: singing bowl (default), air horn, 8-bit level complete, power-down sweep, or the original noise burst. Choosing one plays it; each laptop remembers its own choice.
   After 0:00 the timer counts up in red (`+0:12`). Custom timers: the last warning time gets the ping, earlier ones the bonk.
 - The background turns amber after the first warning, orange after the last, and red in overtime.
 - Bookmarkable: `timer/?d=180&w=60,30&label=Demo` (values in seconds).
-- Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays all three cues and turns sound on if it was off) and the **Volume** slider to check levels.
+- Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays both warnings and the chosen end sound, and turns sound on if it was off) and the **Volume** slider to check levels.
 - How sound works (for the widest browser support): the three cues are generated once as WAV audio in plain JavaScript and played through ordinary `<audio>` elements when each time is reached, the same approach pitchtimer.com uses. Those elements are unlocked on your first click or key press, which iPhones and iPads require. `<audio>` also plays when an iPhone/iPad is on silent. If a browser refuses `<audio>`, Web Audio is used instead.
 - Keep the timer tab visible (as it is when projected). Browsers slow down background tabs, so a cue can be up to about a second late there; a cue more than 5 s overdue is skipped rather than played late.
 - A "Sound is off" note shows on the timer whenever sound is muted (`M` toggles it). Press `D` for a one-line audio diagnostics readout: playback method, Web Audio state, volume, last cue and last error.
