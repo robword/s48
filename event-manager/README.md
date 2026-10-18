@@ -10,8 +10,9 @@ no CDN. Runs on DreamHost (or any Apache + PHP host).
 | `slides/` | Opening-night deck, 16:9, scales to any screen; live voting QR slide |
 | `admin/` | Operator console: log pitches, start/close voting, live results |
 | `vote/` | Mobile voting page participants reach via the QR code |
+| `showcase/` | Self-running "Meet the Organizers / Judges / Mentors" loop with event-info slides (public) |
 | `judging/` | Judging form for final pitches (web version of `judging/judging-form.pdf`) |
-| `api/` | JSON endpoints (`status`, `ballot`, `admin`) |
+| `api/` | JSON endpoints (`status`, `ballot`, `admin`, `showcase`, `showcase-admin`, `photo`) |
 | `inc/` | Shared PHP (not web-accessible) |
 | `bin/` | CLI scripts (not web-accessible) |
 | `data/` | Runtime storage, created automatically, git-ignored, not web-accessible |
@@ -67,6 +68,29 @@ Slides are plain `<section class="slide" data-id="…">` blocks in `slides/index
 
 The **voting slide** checks the server every 3 s. It shows "Voting opens after the last pitch" until the
 operator clicks **Start voting**, then shows the QR code, the short link and a live count of voters.
+
+## Showcase loop (organizers, judges, mentors)
+
+**Editing (operator console, "Showcase" row):**
+- Organizers, Judges and Mentors each have a box. **+ Add** opens a form. Click a person to edit or delete them, and use the arrows to reorder.
+- Headshots are cropped to a square in the browser: drag to position, use the slider to zoom.
+  The browser uploads a 600×600 JPEG. The server re-encodes it with GD when available (stripping metadata) and stores it as `data/photos/<random id>.jpg`.
+  Replacing or deleting a person removes the old file.
+- The **Event info** form sets the header line, Wi-Fi name and password, mentor hours, an announcement, seconds per person (3–15) and which mentors to show.
+  - **Auto** shows Saturday's mentors on Saturday, Sunday's on Sunday, and everyone otherwise.
+  - **Saturday**, **Sunday** and **All** override that.
+
+**Showing:** open `showcase/` on the venue screen and press `F` for fullscreen.
+- The loop runs: Meet the Organizers → Wi-Fi → Meet the Judges → schedule → Meet the Mentors → announcement.
+- Any step with no content is skipped.
+- On the people slides, each headshot flies from the grid into the spotlight with its caption.
+- The schedule is read from the opening-night deck (`slides/`), and today's column is highlighted.
+- Changes made in the console appear at the start of the next cycle.
+- Keys: `→` skips to the next slide, `Space` pauses.
+
+**Storage:** everything lives in `data/showcase.json` (locked and written atomically like `state.json`) plus `data/photos/`.
+Both are outside the deploy sync, so a deploy never deletes them.
+`showcase/` and `api/showcase.php` are public by design (the loop runs without a login), so don't enter anything there you wouldn't put on the screen.
 
 ## Voting flow
 
@@ -156,4 +180,6 @@ This is a light-traffic mockup. Known gaps, roughly in priority order:
    random tokens). Adding email IDs later brings privacy obligations (retention, deletion, a notice to participants).
 9. **Results are visible only to the operator**, but anyone can see the participation counts via
    `api/status.php?counts=1` (by design, for the slide). Remove `counts` if that's sensitive.
-10. **The vendored QR library** (`assets/qrcode.js`, qrcode-generator 1.4.4, MIT) should be tracked for updates.
+10. **Showcase is public.** `api/showcase.php` returns all names, titles, the Wi-Fi password and headshot URLs to anyone.
+    Fine for a slide that's on screen anyway; gate it behind a login if that changes.
+11. **The vendored QR library** (`assets/qrcode.js`, qrcode-generator 1.4.4, MIT) should be tracked for updates.

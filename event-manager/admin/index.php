@@ -92,6 +92,48 @@ $csrf = s48_csrf_token();
   .login .err { color: var(--s48-bad); margin: 8px 0; }
   details { margin-top: 14px; }
   summary { cursor: pointer; color: var(--s48-muted); }
+  /* Event showcase (Meet the ... slide loop) */
+  .sc-wrap { padding: 0 20px 28px; }
+  .sc-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 6px 0 12px; }
+  .sc-head h2 { margin: 0; }
+  .sc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 1100px) { .sc-grid { grid-template-columns: 1fr; } }
+  .sc-col .row { justify-content: space-between; }
+  ol.people { list-style: none; margin: 10px 0 0; padding: 0; max-height: 60vh; overflow: auto; font-size: 14px; }
+  ol.people li { display: flex; align-items: center; gap: 8px; padding: 4px 2px; border-bottom: 1px solid var(--s48-line); min-height: 44px; }
+  ol.people .n { width: 22px; color: var(--s48-muted); text-align: right; font-size: 13px; flex: none; }
+  .thumb { width: 34px; height: 34px; border-radius: 50%; flex: none; background: var(--s48-surface-2) center / cover no-repeat; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--s48-muted); }
+  ol.people .who { flex: 1; min-width: 0; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+  ol.people .who:hover { background: var(--s48-bg); }
+  ol.people .who b, ol.people .who span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ol.people .who span { color: var(--s48-muted); font-size: 12px; }
+  ol.people button { padding: 1px 7px; font-size: 12px; line-height: 17px; }
+  ol.people li:not(:hover) button:not(.danger) { opacity: .45; }
+  .empty-note { color: var(--s48-muted); font-size: 13px; margin: 10px 0 0; }
+  .sc-info { margin-top: 20px; }
+  .info-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 16px; }
+  @media (max-width: 1100px) { .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-grid label, .modal label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--s48-muted); }
+  .info-grid .wide { grid-column: span 2; }
+  @media (max-width: 600px) { .info-grid .wide { grid-column: auto; } }
+  select, input[type=number] { font: inherit; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--s48-line); background: var(--s48-bg); color: var(--s48-text); }
+  textarea { resize: vertical; }
+  /* Person editor dialog */
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(4, 16, 24, .72); display: flex; align-items: flex-start; justify-content: center; padding: 5vh 16px; overflow: auto; }
+  .modal[hidden] { display: none; }
+  .modal .card { width: min(720px, 100%); background: var(--s48-surface); border-radius: 14px; padding: 20px; display: grid; grid-template-columns: 240px 1fr; gap: 20px; }
+  @media (max-width: 640px) { .modal .card { grid-template-columns: 1fr; } }
+  .modal h2 { grid-column: 1 / -1; margin: 0; }
+  .crop-box { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  #cropCanvas { width: 220px; height: 220px; border-radius: 50%; background: var(--s48-bg); cursor: grab; touch-action: none; }
+  #cropCanvas.dragging { cursor: grabbing; }
+  .crop-box .muted { text-align: center; }
+  .fields { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .days { display: flex; gap: 16px; font-size: 14px; color: var(--s48-text); }
+  .modal .actions { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
+  .modal .actions .spacer { flex: 1; }
+  .modal .err { color: var(--s48-bad); grid-column: 1 / -1; min-height: 1.2em; margin: 0; }
 </style>
 </head>
 <body>
@@ -113,6 +155,7 @@ $csrf = s48_csrf_token();
     <a href="../slides/#vote" target="_blank">Slides (QR)</a>
     <a href="../vote/" target="_blank" id="voteLink">Voting page</a>
     <a href="../timer/" target="_blank">Timer</a>
+    <a href="../showcase/" target="_blank">Showcase</a>
     <form method="post" style="margin:0">
       <input type="hidden" name="csrf" value="<?= s48_h($csrf) ?>">
       <input type="hidden" name="do" value="logout">
@@ -166,6 +209,78 @@ $csrf = s48_csrf_token();
       </details>
     </section>
   </main>
+  <div class="sc-wrap" id="showcase">
+    <div class="sc-head">
+      <h2>Event showcase</h2>
+      <span class="muted">People and info for the "Meet the…" slide loop. Changes appear on the next loop.</span>
+      <a href="../showcase/" target="_blank">Open showcase slides</a>
+    </div>
+    <div class="sc-grid">
+      <section class="sc-col" data-group="organizers">
+        <div class="row"><h2>Organizers (<span class="count">0</span>)</h2><button class="primary add" type="button">Add</button></div>
+        <ol class="people"></ol>
+      </section>
+      <section class="sc-col" data-group="judges">
+        <div class="row"><h2>Judges (<span class="count">0</span>)</h2><button class="primary add" type="button">Add</button></div>
+        <ol class="people"></ol>
+      </section>
+      <section class="sc-col" data-group="mentors">
+        <div class="row"><h2>Mentors (<span class="count">0</span>)</h2><button class="primary add" type="button">Add</button></div>
+        <ol class="people"></ol>
+      </section>
+    </div>
+
+    <section class="sc-info">
+      <h2>Event info</h2>
+      <form id="infoForm" class="info-grid">
+        <label class="wide">Header line<input type="text" id="i-header" maxlength="80"></label>
+        <label>Wi-Fi network<input type="text" id="i-wifi_name" maxlength="64"></label>
+        <label>Wi-Fi password<input type="text" id="i-wifi_pass" maxlength="64"></label>
+        <label class="wide">Mentor hours (shown on mentor and schedule slides)<input type="text" id="i-mentor_hours" maxlength="80" placeholder="Mentors available 9 AM – 3 PM"></label>
+        <label>Seconds per person<input type="number" id="i-seconds" min="3" max="15" step="1"></label>
+        <label>Mentors shown
+          <select id="i-mentor_day">
+            <option value="auto">By day (Sat / Sun / everyone)</option>
+            <option value="sat">Saturday mentors</option>
+            <option value="sun">Sunday mentors</option>
+            <option value="all">All mentors</option>
+          </select>
+        </label>
+        <label class="wide">Announcement slide title (leave blank to skip)<input type="text" id="i-announce_title" maxlength="60" placeholder="Need something printed?"></label>
+        <label class="wide">Announcement text<textarea id="i-announce_body" rows="2" maxlength="300"></textarea></label>
+        <div class="row" style="grid-column: 1 / -1"><button class="primary" type="submit">Save event info</button><span class="muted" id="infoSaved"></span></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal" id="personModal" hidden>
+    <form class="card" id="personForm" autocomplete="off">
+      <h2 id="pmTitle">Add mentor</h2>
+      <div class="crop-box">
+        <canvas id="cropCanvas" width="440" height="440" aria-label="Headshot preview"></canvas>
+        <label class="btn" for="photoFile" style="cursor:pointer">Choose photo…</label>
+        <input type="file" id="photoFile" accept="image/*" hidden>
+        <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" aria-label="Zoom">
+        <span class="muted">Drag to position, slide to zoom.</span>
+        <button type="button" id="removePhoto">Remove photo</button>
+      </div>
+      <div class="fields">
+        <label class="f">Name<input type="text" id="p-name" maxlength="80" required></label>
+        <label class="f" data-for="judges mentors">Title<input type="text" id="p-title" maxlength="80"></label>
+        <label class="f">Organization<input type="text" id="p-org" maxlength="100"></label>
+        <label class="f" data-for="mentors">Skills / focus area<input type="text" id="p-skills" maxlength="160" placeholder="e.g. Marketing, pricing, SaaS"></label>
+        <div class="f days" data-for="mentors"><label><input type="checkbox" id="p-sat"> Saturday</label><label><input type="checkbox" id="p-sun"> Sunday</label></div>
+        <label class="f" data-for="organizers">First Startup 48 (year)<input type="number" id="p-first_year" min="2000" max="2100" placeholder="2017"></label>
+      </div>
+      <p class="err" id="pmErr"></p>
+      <div class="actions">
+        <button class="primary" type="submit" id="pmSave">Save</button>
+        <button type="button" id="pmCancel">Cancel</button>
+        <span class="spacer"></span>
+        <button type="button" class="danger" id="pmDelete">Delete</button>
+      </div>
+    </form>
+  </div>
   <div class="toast" id="toast"></div>
 
 <script src="../assets/common.js"></script>
@@ -326,6 +441,163 @@ $csrf = s48_csrf_token();
   };
 
   poll();
+})();
+</script>
+<script>
+/* Event showcase: organizers, judges, mentors and event info for the "Meet the..." loop. */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var LABEL = { organizers: 'organizer', judges: 'judge', mentors: 'mentor' };
+  var data = null, edit = null; // edit: { group, person|null }
+
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(function () { t.style.display = 'none'; }, 3500); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined) { e.textContent = text; } return e; }
+  function initials(name) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join(''); }
+
+  function api(body, cb) {
+    S48.api(body ? 'POST' : 'GET', '../api/showcase-admin.php', body, function (err, res) {
+      if (err) { if (err.status === 401) { location.reload(); return; } if (cb) { cb(err); } else { toast(err.message); } return; }
+      data = res; render(); if (cb) { cb(null, res); }
+    });
+  }
+
+  function subtitle(g, p) {
+    if (g === 'organizers') { return [p.org, p.first_year ? 'since ' + p.first_year : ''].filter(Boolean).join(' · '); }
+    var days = g === 'mentors' ? [p.sat ? 'Sat' : '', p.sun ? 'Sun' : ''].filter(Boolean).join('/') : '';
+    return [p.title, p.org, days].filter(Boolean).join(' · ');
+  }
+
+  function render() {
+    ['organizers', 'judges', 'mentors'].forEach(function (g) {
+      var col = document.querySelector('.sc-col[data-group="' + g + '"]'), ol = col.querySelector('ol'), list = data.people[g];
+      col.querySelector('.count').textContent = list.length;
+      ol.innerHTML = '';
+      if (!list.length) { var li0 = el('li'); li0.appendChild(el('span', 'empty-note', 'No ' + g + ' yet. Use Add.')); ol.appendChild(li0); }
+      list.forEach(function (p, i) {
+        var li = el('li');
+        li.appendChild(el('span', 'n', (i + 1) + '.'));
+        var th = el('span', 'thumb');
+        if (p.photo_url) { th.style.backgroundImage = 'url("' + p.photo_url + '")'; } else { th.textContent = initials(p.name); }
+        li.appendChild(th);
+        var who = el('span', 'who'); who.title = 'Click to edit';
+        who.appendChild(el('b', '', p.name)); who.appendChild(el('span', '', subtitle(g, p)));
+        who.onclick = function () { openEditor(g, p); };
+        li.appendChild(who);
+        var up = el('button', '', '↑'); up.type = 'button'; up.disabled = i === 0; up.title = 'Move up'; up.onclick = function () { api({ action: 'move', group: g, id: p.id, dir: -1 }); };
+        var dn = el('button', '', '↓'); dn.type = 'button'; dn.disabled = i === list.length - 1; dn.title = 'Move down'; dn.onclick = function () { api({ action: 'move', group: g, id: p.id, dir: 1 }); };
+        var del = el('button', 'danger', '✕'); del.type = 'button'; del.title = 'Delete';
+        del.onclick = function () { if (confirm('Delete ' + p.name + '?')) { api({ action: 'delete', group: g, id: p.id }); } };
+        li.appendChild(up); li.appendChild(dn); li.appendChild(del);
+        ol.appendChild(li);
+      });
+    });
+    if (!document.activeElement || !$('infoForm').contains(document.activeElement)) {
+      for (var k in data.info) { if (data.info.hasOwnProperty(k) && $('i-' + k)) { $('i-' + k).value = data.info[k]; } }
+    }
+  }
+
+  document.querySelectorAll('.sc-col .add').forEach(function (b) {
+    b.onclick = function () { openEditor(b.closest('.sc-col').getAttribute('data-group'), null); };
+  });
+
+  $('infoForm').onsubmit = function (e) {
+    e.preventDefault();
+    var f = {};
+    ['header', 'wifi_name', 'wifi_pass', 'mentor_hours', 'seconds', 'mentor_day', 'announce_title', 'announce_body'].forEach(function (k) { f[k] = $('i-' + k).value; });
+    api({ action: 'info', fields: f }, function (err) { $('infoSaved').textContent = err ? err.message : 'Saved ' + new Date().toLocaleTimeString(); });
+  };
+
+  /* ---------- headshot cropper: drag to position, slide to zoom, exported as 600x600 JPEG ---------- */
+  var cv = $('cropCanvas'), cx = cv.getContext('2d'), crop = { img: null, zoom: 1, x: 0, y: 0, changed: false, removed: false };
+
+  function baseScale() { return crop.img ? Math.max(cv.width / crop.img.naturalWidth, cv.height / crop.img.naturalHeight) : 1; }
+  function clampCrop() {
+    if (!crop.img) { return; }
+    var s = baseScale() * crop.zoom, w = crop.img.naturalWidth * s, h = crop.img.naturalHeight * s;
+    var mx = Math.max(0, (w - cv.width) / 2), my = Math.max(0, (h - cv.height) / 2);
+    crop.x = Math.max(-mx, Math.min(mx, crop.x)); crop.y = Math.max(-my, Math.min(my, crop.y));
+  }
+  function drawCrop(ctx, size) {
+    var k = size / cv.width, s = baseScale() * crop.zoom * k;
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--s48-surface-2') || '#2f617d';
+    ctx.fillRect(0, 0, size, size);
+    if (!crop.img) {
+      ctx.fillStyle = '#b9cfdb'; ctx.font = (size * 0.2) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(initials($('p-name').value || '?'), size / 2, size / 2);
+      return;
+    }
+    var w = crop.img.naturalWidth * s, h = crop.img.naturalHeight * s;
+    ctx.drawImage(crop.img, size / 2 - w / 2 + crop.x * k, size / 2 - h / 2 + crop.y * k, w, h);
+  }
+  function redraw() { clampCrop(); drawCrop(cx, cv.width); }
+  function loadImage(src, fresh) {
+    var img = new Image();
+    img.onload = function () { crop.img = img; crop.zoom = 1; crop.x = 0; crop.y = 0; $('cropZoom').value = 1; crop.changed = fresh; crop.removed = false; redraw(); };
+    img.onerror = function () { $('pmErr').textContent = 'That image could not be opened. Use a JPEG or PNG.'; };
+    img.src = src;
+  }
+  $('photoFile').onchange = function () {
+    var f = this.files && this.files[0];
+    if (!f) { return; }
+    if (!/^image\//.test(f.type)) { $('pmErr').textContent = 'Choose an image file.'; return; }
+    var r = new FileReader();
+    r.onload = function () { $('pmErr').textContent = ''; loadImage(r.result, true); };
+    r.readAsDataURL(f);
+    this.value = '';
+  };
+  $('cropZoom').oninput = function () { crop.zoom = +this.value; crop.changed = !!crop.img; redraw(); };
+  $('removePhoto').onclick = function () { crop.img = null; crop.changed = false; crop.removed = true; redraw(); };
+  (function () {
+    var drag = null;
+    cv.addEventListener('pointerdown', function (e) { if (!crop.img) { return; } drag = { x: e.clientX, y: e.clientY, ox: crop.x, oy: crop.y }; cv.setPointerCapture(e.pointerId); cv.classList.add('dragging'); });
+    cv.addEventListener('pointermove', function (e) {
+      if (!drag) { return; }
+      var k = cv.width / cv.clientWidth;
+      crop.x = drag.ox + (e.clientX - drag.x) * k; crop.y = drag.oy + (e.clientY - drag.y) * k; crop.changed = true; redraw();
+    });
+    function end() { drag = null; cv.classList.remove('dragging'); }
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  })();
+  function exportPhoto() {
+    var out = document.createElement('canvas'); out.width = 600; out.height = 600;
+    drawCrop(out.getContext('2d'), 600);
+    return out.toDataURL('image/jpeg', 0.85);
+  }
+
+  /* ---------- person editor ---------- */
+  function openEditor(g, p) {
+    edit = { group: g, person: p };
+    $('pmTitle').textContent = (p ? 'Edit ' : 'Add ') + LABEL[g];
+    document.querySelectorAll('#personForm [data-for]').forEach(function (n) { n.style.display = n.getAttribute('data-for').split(' ').indexOf(g) >= 0 ? '' : 'none'; });
+    $('p-name').value = p ? p.name : ''; $('p-title').value = p && p.title ? p.title : ''; $('p-org').value = p ? p.org : '';
+    $('p-skills').value = p && p.skills ? p.skills : ''; $('p-sat').checked = !!(p && p.sat); $('p-sun').checked = !!(p && p.sun);
+    $('p-first_year').value = p && p.first_year ? p.first_year : '';
+    $('pmDelete').style.display = p ? '' : 'none';
+    $('pmErr').textContent = '';
+    crop = { img: null, zoom: 1, x: 0, y: 0, changed: false, removed: false }; $('cropZoom').value = 1;
+    if (p && p.photo_url) { loadImage(p.photo_url, false); } else { redraw(); }
+    $('personModal').hidden = false;
+    $('p-name').focus();
+  }
+  function closeEditor() { $('personModal').hidden = true; edit = null; }
+  $('pmCancel').onclick = closeEditor;
+  $('personModal').addEventListener('click', function (e) { if (e.target === this) { closeEditor(); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('personModal').hidden) { closeEditor(); } });
+  $('p-name').addEventListener('input', function () { if (!crop.img) { redraw(); } });
+  $('pmDelete').onclick = function () {
+    if (!edit || !edit.person || !confirm('Delete ' + edit.person.name + '?')) { return; }
+    api({ action: 'delete', group: edit.group, id: edit.person.id }, function (err) { if (err) { $('pmErr').textContent = err.message; } else { closeEditor(); } });
+  };
+  $('personForm').onsubmit = function (e) {
+    e.preventDefault();
+    var fields = { name: $('p-name').value, title: $('p-title').value, org: $('p-org').value, skills: $('p-skills').value, sat: $('p-sat').checked, sun: $('p-sun').checked, first_year: $('p-first_year').value };
+    var body = edit.person ? { action: 'update', group: edit.group, id: edit.person.id, fields: fields } : { action: 'add', group: edit.group, fields: fields };
+    if (crop.img && crop.changed) { body.photo = exportPhoto(); } else if (edit.person && crop.removed) { body.remove_photo = true; }
+    $('pmSave').disabled = true; $('pmErr').textContent = '';
+    api(body, function (err) { $('pmSave').disabled = false; if (err) { $('pmErr').textContent = err.message; } else { closeEditor(); } });
+  };
+
+  api(null);
 })();
 </script>
 <?php endif; ?>

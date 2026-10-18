@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>startup48 · Event Showcase</title>
+<!--
+  Self-running event loop: Meet the Organizers, Wi-Fi, Meet the Judges, the weekend schedule,
+  Meet the Mentors, and an announcement. People and text come from the operator console
+  (api/showcase.php) and are re-read at the start of every loop. Empty slides are skipped.
+  Keys: → next slide · Space pause/resume · F fullscreen
+-->
+<link rel="stylesheet" href="../assets/theme.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: var(--s48-font); color: var(--s48-text); }
+  body.idle { cursor: none; }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--s48-bg); overflow: hidden; }
+
+  .slide { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; }
+  .slide.on { opacity: 1; }
+
+  /* Header strip on every slide, like the printed deck: event line, a rule, and the logo. */
+  .hdr { position: absolute; left: 140px; right: 140px; top: 54px; display: flex; align-items: center; gap: 28px; }
+  .hdr .ev { font-family: var(--s48-font-heading); font-weight: 700; font-size: 24px; letter-spacing: .12em; text-transform: uppercase; color: var(--s48-muted); white-space: nowrap; }
+  .hdr .rule { flex: 1; height: 2px; background: var(--s48-line); }
+  .hdr .s48-wordmark { font-size: 34px; }
+  .title { position: absolute; left: 140px; top: 112px; margin: 0; font-family: var(--s48-font-display); font-weight: 700; font-size: 72px; line-height: 1.1; }
+  .title .k { color: var(--s48-accent-ink); }
+
+  /* Meet slides: spotlight on the left, everyone else in a grid on the right. */
+  .face { position: absolute; border-radius: 50%; overflow: hidden; background: var(--s48-surface-2); box-shadow: 0 0 0 4px var(--s48-bg); will-change: transform; transition: transform .9s cubic-bezier(.65, 0, .35, 1), opacity .5s ease; z-index: 1; }
+  .face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .face .ini { width: 100%; height: 100%; display: grid; place-items: center; font-family: var(--s48-font-display); font-weight: 700; color: var(--s48-muted); }
+  .face.out { z-index: 3; box-shadow: 0 0 0 8px var(--s48-bg), 0 0 0 14px var(--s48-accent); }
+  .face.leaving { z-index: 2; }
+  .face.hidden { opacity: 0; }
+  .cap { position: absolute; left: 140px; width: 660px; top: 760px; text-align: center; opacity: 0; transition: opacity .5s ease; }
+  .cap.on { opacity: 1; }
+  .cap .nm { font-family: var(--s48-font-display); font-weight: 700; font-size: 52px; line-height: 1.15; }
+  .cap .ln { font-size: 32px; line-height: 1.35; }
+  .cap .org { color: var(--s48-muted); }
+  .cap .sk { margin-top: 10px; font-size: 28px; color: var(--s48-accent-2); }
+  .cap .days { margin-top: 14px; display: flex; gap: 10px; justify-content: center; }
+  .cap .days span { font-family: var(--s48-font-heading); font-weight: 700; font-size: 22px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 14px; border-radius: 6px; background: var(--s48-teal); color: #fff; }
+  .badge { position: absolute; right: 140px; top: 130px; font-family: var(--s48-font-heading); font-weight: 700; font-size: 26px; letter-spacing: .08em; text-transform: uppercase; padding: 10px 20px; border-radius: 8px; background: var(--s48-teal); color: #fff; }
+
+  /* Info slides */
+  .center { position: absolute; left: 140px; right: 140px; top: 260px; bottom: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 30px; }
+  .wifi .row { font-size: 64px; } .wifi .row b { font-family: var(--s48-font-display); font-weight: 700; color: var(--s48-accent-2); }
+  .ann .body { font-size: 54px; line-height: 1.35; max-width: 1400px; text-wrap: balance; }
+  .sched { position: absolute; left: 140px; right: 140px; top: 250px; }
+  .sched .schedule { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .sched .day { background: var(--s48-surface); border-radius: 16px; overflow: hidden; }
+  .sched .day h3 { font-family: var(--s48-font-heading); font-weight: 700; font-size: 48px; margin: 0; padding: 18px 30px; color: #fff; font-variant-numeric: lining-nums; }
+  .sched .day h3 .dayno { font-weight: 500; opacity: .85; margin-right: .45em; }
+  .sched .day table { width: calc(100% - 60px); margin: 10px 30px 22px; border-collapse: collapse; }
+  .sched .day td { font-size: 29px; padding: 8px 0; vertical-align: top; border-top: 1px solid var(--s48-line); }
+  .sched .day tr:first-child td { border-top: 0; }
+  .sched .day td:first-child { width: 142px; white-space: nowrap; padding-right: 16px; color: var(--s48-muted); font-variant-numeric: tabular-nums; }
+  .sched .day.today { box-shadow: 0 0 0 4px var(--s48-accent-2); }
+  .c-orange { background: var(--s48-orange); } .c-teal { background: var(--s48-teal); } .c-slate { background: var(--s48-slate); }
+
+  #paused { position: absolute; right: 140px; bottom: 50px; font-size: 24px; color: var(--s48-muted); display: none; z-index: 10; }
+  body.paused #paused { display: block; }
+  @media (prefers-reduced-motion: reduce) { .face, .slide, .cap { transition-duration: .01s; } }
+</style>
+</head>
+<body>
+<div id="stage"><div id="paused">Paused · Space to resume</div></div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var GRID = { left: 860, top: 250, width: 920, height: 760 };   // where the grid of faces goes
+  var SPOT = { cx: 470, cy: 500, size: 400 };                     // spotlight circle
+  var FLY = 900;                                                  // ms for a face to fly out or back
+  var data = null, scheduleHTML = null, step = 0, paused = false;   // step: id of the slide now showing
+
+  function fit() { var s = Math.min(innerWidth / 1920, innerHeight / 1080); stage.style.transform = 'scale(' + s + ') translate(-50%, -50%)'; }
+  fit(); addEventListener('resize', fit);
+
+  // Sleep that respects pause and gives up when the slide has been skipped.
+  function wait(ms, myRun) {
+    return new Promise(function (resolve, reject) {
+      var left = ms, last = Date.now();
+      (function tick() {
+        if (myRun !== step) { reject('skip'); return; }
+        var now = Date.now(); if (!paused) { left -= now - last; } last = now;
+        if (left <= 0) { resolve(); } else { setTimeout(tick, Math.min(100, left)); }
+      })();
+    });
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined && text !== null) { e.textContent = text; } return e; }
+  function initials(n) { return n.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join(''); }
+
+  function frame(titleKicker, titleMain) {
+    var s = el('section', 'slide');
+    var h = el('div', 'hdr'); h.appendChild(el('div', 'ev', data && data.info.header || 'STARTUP 48'));
+    h.appendChild(el('div', 'rule')); var w = el('div', 's48-wordmark'); w.innerHTML = 'startup<span>48</span>'; h.appendChild(w);
+    s.appendChild(h);
+    var t = el('h1', 'title'); if (titleKicker) { t.appendChild(el('span', 'k', titleKicker + ' ')); } t.appendChild(document.createTextNode(titleMain));
+    s.appendChild(t);
+    return s;
+  }
+  function swapIn(s) {
+    var old = stage.querySelectorAll('.slide');
+    stage.appendChild(s);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { s.classList.add('on'); }); });
+    old.forEach(function (o) { o.classList.remove('on'); setTimeout(function () { o.remove(); }, 700); });
+  }
+
+  // Lay out n faces in the grid area: pick the column count that gives the biggest circles.
+  function gridSlots(n) {
+    var best = null;
+    for (var cols = 1; cols <= n; cols++) {
+      var rows = Math.ceil(n / cols), cell = Math.min(GRID.width / cols, GRID.height / rows, 230);
+      if (!best || cell > best.cell) { best = { cols: cols, rows: rows, cell: cell }; }
+    }
+    var size = Math.round(best.cell * 0.84), slots = [];
+    var offX = GRID.left + (GRID.width - best.cols * best.cell) + best.cell / 2;   // right-aligned like the video
+    var offY = GRID.top + (GRID.height - best.rows * best.cell) / 2 + best.cell / 2;
+    for (var i = 0; i < n; i++) { slots.push({ cx: offX + (i % best.cols) * best.cell, cy: offY + Math.floor(i / best.cols) * best.cell, size: size }); }
+    return slots;
+  }
+
+  function captionFor(group, p) {
+    var c = el('div', 'cap');
+    c.appendChild(el('div', 'nm', p.name));
+    if (p.title) { c.appendChild(el('div', 'ln', p.title)); }
+    if (p.org) { c.appendChild(el('div', 'ln org', p.org)); }
+    if (group === 'organizers' && p.first_year) { c.appendChild(el('div', 'sk', 'First Startup 48: ' + p.first_year)); }
+    if (group === 'mentors' && p.skills) { c.appendChild(el('div', 'sk', p.skills)); }
+    if (group === 'mentors' && (p.sat || p.sun)) {
+      var d = el('div', 'days'); if (p.sat) { d.appendChild(el('span', '', 'Saturday')); } if (p.sun) { d.appendChild(el('span', '', 'Sunday')); } c.appendChild(d);
+    }
+    return c;
+  }
+
+  function preload(urls) {
+    return Promise.all(urls.map(function (u) { return new Promise(function (r) { var i = new Image(); i.onload = i.onerror = r; i.src = u; setTimeout(r, 4000); }); }));
+  }
+
+  async function meetSlide(group, title, people, badgeText, myRun) {
+    await preload(people.filter(function (p) { return p.photo_url; }).map(function (p) { return p.photo_url; }));
+    var s = frame('Meet the', title), slots = gridSlots(people.length), faces = [];
+    people.forEach(function (p, i) {
+      var f = el('div', 'face hidden'), sl = slots[i];
+      f.style.width = f.style.height = sl.size + 'px';
+      f.style.left = (sl.cx - sl.size / 2) + 'px'; f.style.top = (sl.cy - sl.size / 2) + 'px';
+      if (p.photo_url) { var im = el('img'); im.alt = ''; im.src = p.photo_url; f.appendChild(im); }
+      else { var ini = el('div', 'ini', initials(p.name)); ini.style.fontSize = Math.round(sl.size * 0.34) + 'px'; f.appendChild(ini); }
+      s.appendChild(f); faces.push(f);
+    });
+    if (badgeText) { s.appendChild(el('div', 'badge', badgeText)); }
+    swapIn(s);
+    // Faces pop in one after another.
+    for (var i = 0; i < faces.length; i++) { (function (f, d) { setTimeout(function () { f.classList.remove('hidden'); }, d); })(faces[i], 300 + i * 70); }
+    await wait(900 + faces.length * 70, myRun);
+    var cap = null;
+    for (i = 0; i < people.length; i++) {
+      var f = faces[i], sl = slots[i], k = SPOT.size / sl.size;
+      f.classList.add('out');
+      f.style.transform = 'translate(' + (SPOT.cx - sl.cx) + 'px,' + (SPOT.cy - sl.cy) + 'px) scale(' + k + ')';
+      if (cap) { var oldCap = cap; oldCap.classList.remove('on'); setTimeout(function () { oldCap.remove(); }, 600); }
+      cap = captionFor(group, people[i]); s.appendChild(cap);
+      await wait(FLY * 0.6, myRun); cap.classList.add('on');
+      await wait((data.info.seconds || 5) * 1000, myRun);
+      // Send this face home; the next one flies out as it goes (as in the video).
+      f.classList.remove('out'); f.classList.add('leaving'); f.style.transform = '';
+      (function (ff) { setTimeout(function () { ff.classList.remove('leaving'); }, FLY); })(f);
+    }
+    if (cap) { cap.classList.remove('on'); }
+    await wait(FLY + 600, myRun);
+  }
+
+  async function wifiSlide(myRun) {
+    var s = frame('', 'Wi-Fi'), c = el('div', 'center wifi');
+    var a = el('div', 'row'); a.appendChild(document.createTextNode('Network: ')); a.appendChild(el('b', '', data.info.wifi_name)); c.appendChild(a);
+    if (data.info.wifi_pass) { var b = el('div', 'row'); b.appendChild(document.createTextNode('Password: ')); b.appendChild(el('b', '', data.info.wifi_pass)); c.appendChild(b); }
+    s.appendChild(c); swapIn(s); await wait(10000, myRun);
+  }
+  async function scheduleSlide(myRun) {
+    var s = frame('', 'The weekend at a glance'), box = el('div', 'sched');
+    box.innerHTML = scheduleHTML;
+    var dayIdx = { 5: 0, 6: 1, 0: 2 }[new Date().getDay()], days = box.querySelectorAll('.day');
+    if (dayIdx !== undefined && days[dayIdx]) { days[dayIdx].classList.add('today'); }
+    s.appendChild(box);
+    if (data.info.mentor_hours) { s.appendChild(el('div', 'badge', data.info.mentor_hours)); }
+    swapIn(s); await wait(15000, myRun);
+  }
+  async function announceSlide(myRun) {
+    var s = frame('', data.info.announce_title), c = el('div', 'center ann');
+    c.appendChild(el('div', 'body', data.info.announce_body)); s.appendChild(c); swapIn(s); await wait(10000, myRun);
+  }
+  async function emptySlide(msg, myRun) {
+    var s = frame('', 'Event showcase'), c = el('div', 'center ann'); c.appendChild(el('div', 'body', msg)); s.appendChild(c); swapIn(s); await wait(10000, myRun);
+  }
+
+  function mentorsToday() {
+    var mode = data.info.mentor_day || 'auto', d = new Date().getDay();
+    if (mode === 'auto') { mode = d === 6 ? 'sat' : d === 0 ? 'sun' : 'all'; }
+    var list = data.people.mentors.filter(function (p) { return mode === 'all' || p[mode]; });
+    return { list: list, label: mode === 'sat' ? 'Saturday mentors' : mode === 'sun' ? 'Sunday mentors' : '' };
+  }
+
+  async function load() {
+    try {
+      var r = await fetch('../api/showcase.php?_=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) { data = await r.json(); }
+    } catch (e) { /* keep the last good data */ }
+    if (scheduleHTML === null) {
+      try {
+        var html = await (await fetch('../slides/', { cache: 'no-store' })).text();
+        var sch = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-id="schedule"] .schedule');
+        scheduleHTML = sch ? sch.outerHTML : '';
+      } catch (e) { scheduleHTML = ''; }
+    }
+  }
+
+  // One pass through the loop; each step is skipped when it has nothing to show.
+  async function cycle() {
+    await load();
+    var steps = [];
+    if (!data) {
+      steps.push(function (id) { return emptySlide('Can’t reach the showcase data. Retrying…', id); });
+    } else {
+      var P = data.people, m = mentorsToday(), i = data.info;
+      if (P.organizers.length) { steps.push(function (id) { return meetSlide('organizers', 'Organizers', P.organizers, '', id); }); }
+      if (i.wifi_name) { steps.push(function (id) { return wifiSlide(id); }); }
+      if (P.judges.length) { steps.push(function (id) { return meetSlide('judges', 'Judges', P.judges, '', id); }); }
+      if (scheduleHTML) { steps.push(function (id) { return scheduleSlide(id); }); }
+      if (m.list.length) { steps.push(function (id) { return meetSlide('mentors', m.label ? m.label.replace(' mentors', ' Mentors') : 'Mentors', m.list, i.mentor_hours, id); }); }
+      if (i.announce_title && i.announce_body) { steps.push(function (id) { return announceSlide(id); }); }
+      if (!P.organizers.length && !P.judges.length && !m.list.length) {
+        steps.unshift(function (id) { return emptySlide('Add organizers, judges and mentors in the operator console. They’ll appear here on the next loop.', id); });
+      }
+    }
+    for (var k = 0; k < steps.length; k++) {
+      try { await steps[k](++step); } catch (e) { if (e !== 'skip') { throw e; } }   // a skip just moves on
+    }
+  }
+
+  async function main() {
+    for (;;) {
+      try { await cycle(); } catch (e) { console.error(e); await new Promise(function (r) { setTimeout(r, 3000); }); }
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { step++; }              // skip to the next slide
+    else if (e.key === ' ') { paused = !paused; document.body.classList.toggle('paused', paused); }
+    else if (e.key === 'f' || e.key === 'F') {
+      var d = document, el2 = d.documentElement;
+      if (!(d.fullscreenElement || d.webkitFullscreenElement)) { (el2.requestFullscreen || el2.webkitRequestFullscreen || function () {}).call(el2); }
+      else { (d.exitFullscreen || d.webkitExitFullscreen || function () {}).call(d); }
+    } else { return; }
+    e.preventDefault();
+  });
+  var idleT; document.addEventListener('mousemove', function () { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(function () { document.body.classList.add('idle'); }, 2500); });
+
+  main();
+})();
+</script>
+</body>
+</html>
