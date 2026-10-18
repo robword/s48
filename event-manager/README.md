@@ -73,6 +73,8 @@ operator clicks **Start voting**, then shows the QR code, the short link and a l
 
 **Editing (operator console, "Showcase" row):**
 - Organizers, Judges and Mentors each have a box. **+ Add** opens a form. Click a person to edit or delete them, and use the arrows to reorder.
+- An organizer who is also mentoring gets the **Also mentoring** box. Ticking it adds the mentor fields (title, skills, Saturday/Sunday).
+  They then appear on Meet the Mentors after the regular mentors, and the Mentors box lists them.
 - Headshots are cropped to a square in the browser: drag to position, use the slider to zoom.
   The browser uploads a 600×600 JPEG. The server re-encodes it with GD when available (stripping metadata) and stores it as `data/photos/<random id>.jpg`.
   Replacing or deleting a person removes the old file.

@@ -83,10 +83,15 @@ function s48_person_fields(string $group, array $in): array
     if ($p['name'] === '') {
         throw new S48Error('Name is required');
     }
-    if ($group !== 'organizers') {
+    // Organizers can also mentor; they then carry the mentor fields too.
+    $mentoring = $group === 'organizers' && !empty($in['mentoring']);
+    if ($group !== 'organizers' || $mentoring) {
         $p['title'] = s48_clean_text($in['title'] ?? '', 80);
     }
-    if ($group === 'mentors') {
+    if ($group === 'organizers') {
+        $p['mentoring'] = $mentoring;
+    }
+    if ($group === 'mentors' || $mentoring) {
         $p['skills'] = s48_clean_text($in['skills'] ?? '', 160);
         $p['sat'] = !empty($in['sat']);
         $p['sun'] = !empty($in['sun']);

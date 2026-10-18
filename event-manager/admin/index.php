@@ -130,6 +130,7 @@ $csrf = s48_csrf_token();
   #cropCanvas.dragging { cursor: grabbing; }
   .crop-box .muted { text-align: center; }
   .fields { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .f.check { font-size: 14px; color: var(--s48-text); }
   .days { display: flex; gap: 16px; font-size: 14px; color: var(--s48-text); }
   .modal .actions { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; }
   .modal .actions .spacer { flex: 1; }
@@ -266,11 +267,12 @@ $csrf = s48_csrf_token();
       </div>
       <div class="fields">
         <label class="f">Name<input type="text" id="p-name" maxlength="80" required></label>
-        <label class="f" data-for="judges mentors">Title<input type="text" id="p-title" maxlength="80"></label>
+        <label class="f" data-for="judges mentors" data-mentor>Title<input type="text" id="p-title" maxlength="80"></label>
         <label class="f">Organization<input type="text" id="p-org" maxlength="100"></label>
-        <label class="f" data-for="mentors">Skills / focus area<input type="text" id="p-skills" maxlength="160" placeholder="e.g. Marketing, pricing, SaaS"></label>
-        <div class="f days" data-for="mentors"><label><input type="checkbox" id="p-sat"> Saturday</label><label><input type="checkbox" id="p-sun"> Sunday</label></div>
+        <label class="f" data-for="mentors" data-mentor>Skills / focus area<input type="text" id="p-skills" maxlength="160" placeholder="e.g. Marketing, pricing, SaaS"></label>
+        <div class="f days" data-for="mentors" data-mentor><label><input type="checkbox" id="p-sat"> Saturday</label><label><input type="checkbox" id="p-sun"> Sunday</label></div>
         <label class="f" data-for="organizers">First Startup 48 (year)<input type="number" id="p-first_year" min="2000" max="2100" placeholder="2017"></label>
+        <label class="f check" data-for="organizers"><span><input type="checkbox" id="p-mentoring"> Also mentoring <span class="muted">(shows on the Meet the Mentors slide)</span></span></label>
       </div>
       <p class="err" id="pmErr"></p>
       <div class="actions">
@@ -462,8 +464,8 @@ $csrf = s48_csrf_token();
   }
 
   function subtitle(g, p) {
-    if (g === 'organizers') { return [p.org, p.first_year ? 'since ' + p.first_year : ''].filter(Boolean).join(' · '); }
-    var days = g === 'mentors' ? [p.sat ? 'Sat' : '', p.sun ? 'Sun' : ''].filter(Boolean).join('/') : '';
+    var days = g === 'mentors' || p.mentoring ? [p.sat ? 'Sat' : '', p.sun ? 'Sun' : ''].filter(Boolean).join('/') : '';
+    if (g === 'organizers') { return [p.org, p.first_year ? 'since ' + p.first_year : '', p.mentoring ? 'Mentor' + (days ? ' ' + days : '') : ''].filter(Boolean).join(' · '); }
     return [p.title, p.org, days].filter(Boolean).join(' · ');
   }
 
@@ -490,6 +492,14 @@ $csrf = s48_csrf_token();
         li.appendChild(up); li.appendChild(dn); li.appendChild(del);
         ol.appendChild(li);
       });
+      if (g === 'mentors') {
+        var om = data.people.organizers.filter(function (p) { return p.mentoring; });
+        if (om.length) {
+          var note = el('li'); note.appendChild(el('span', 'empty-note', 'Also mentoring (from Organizers): ' + om.map(function (p) { return p.name; }).join(', ')));
+          ol.appendChild(note);
+        }
+        col.querySelector('.count').textContent = list.length + (om.length ? ' + ' + om.length : '');
+      }
     });
     if (!document.activeElement || !$('infoForm').contains(document.activeElement)) {
       for (var k in data.info) { if (data.info.hasOwnProperty(k) && $('i-' + k)) { $('i-' + k).value = data.info[k]; } }
@@ -568,10 +578,11 @@ $csrf = s48_csrf_token();
   function openEditor(g, p) {
     edit = { group: g, person: p };
     $('pmTitle').textContent = (p ? 'Edit ' : 'Add ') + LABEL[g];
-    document.querySelectorAll('#personForm [data-for]').forEach(function (n) { n.style.display = n.getAttribute('data-for').split(' ').indexOf(g) >= 0 ? '' : 'none'; });
     $('p-name').value = p ? p.name : ''; $('p-title').value = p && p.title ? p.title : ''; $('p-org').value = p ? p.org : '';
     $('p-skills').value = p && p.skills ? p.skills : ''; $('p-sat').checked = !!(p && p.sat); $('p-sun').checked = !!(p && p.sun);
     $('p-first_year').value = p && p.first_year ? p.first_year : '';
+    $('p-mentoring').checked = !!(p && p.mentoring);
+    showFields();
     $('pmDelete').style.display = p ? '' : 'none';
     $('pmErr').textContent = '';
     crop = { img: null, zoom: 1, x: 0, y: 0, changed: false, removed: false }; $('cropZoom').value = 1;
@@ -579,6 +590,15 @@ $csrf = s48_csrf_token();
     $('personModal').hidden = false;
     $('p-name').focus();
   }
+  // A field shows when it belongs to the group, or it's a mentor field and this organizer also mentors.
+  function showFields() {
+    var g = edit.group, m = g === 'organizers' && $('p-mentoring').checked;
+    document.querySelectorAll('#personForm [data-for]').forEach(function (n) {
+      var on = n.getAttribute('data-for').split(' ').indexOf(g) >= 0 || (m && n.hasAttribute('data-mentor'));
+      n.style.display = on ? '' : 'none';
+    });
+  }
+  $('p-mentoring').onchange = showFields;
   function closeEditor() { $('personModal').hidden = true; edit = null; }
   $('pmCancel').onclick = closeEditor;
   $('personModal').addEventListener('click', function (e) { if (e.target === this) { closeEditor(); } });
@@ -590,7 +610,7 @@ $csrf = s48_csrf_token();
   };
   $('personForm').onsubmit = function (e) {
     e.preventDefault();
-    var fields = { name: $('p-name').value, title: $('p-title').value, org: $('p-org').value, skills: $('p-skills').value, sat: $('p-sat').checked, sun: $('p-sun').checked, first_year: $('p-first_year').value };
+    var fields = { name: $('p-name').value, title: $('p-title').value, org: $('p-org').value, skills: $('p-skills').value, sat: $('p-sat').checked, sun: $('p-sun').checked, first_year: $('p-first_year').value, mentoring: $('p-mentoring').checked };
     var body = edit.person ? { action: 'update', group: edit.group, id: edit.person.id, fields: fields } : { action: 'add', group: edit.group, fields: fields };
     if (crop.img && crop.changed) { body.photo = exportPhoto(); } else if (edit.person && crop.removed) { body.remove_photo = true; }
     $('pmSave').disabled = true; $('pmErr').textContent = '';

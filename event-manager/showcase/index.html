@@ -200,7 +200,9 @@
   function mentorsToday() {
     var mode = data.info.mentor_day || 'auto', d = new Date().getDay();
     if (mode === 'auto') { mode = d === 6 ? 'sat' : d === 0 ? 'sun' : 'all'; }
-    var list = data.people.mentors.filter(function (p) { return mode === 'all' || p[mode]; });
+    // Organizers who also mentor follow the regular mentors.
+    var all = data.people.mentors.concat(data.people.organizers.filter(function (p) { return p.mentoring; }));
+    var list = all.filter(function (p) { return mode === 'all' || p[mode]; });
     return { list: list, label: mode === 'sat' ? 'Saturday mentors' : mode === 'sun' ? 'Sunday mentors' : '' };
   }
 
