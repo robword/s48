@@ -36,7 +36,7 @@ License, Ubuntu under the Ubuntu Font Licence), so nothing loads from a CDN on v
 Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5:00 (1:00, 0:20),
 **3** Q&A 5:00 (1:00, 0:30), or **Custom…** (saved in the browser).
 
-- Keys: `Space` start/pause · `R` reset · `1` `2` `3` presets · `F` fullscreen · `M` mute · `H` hide controls
+- Keys: `Space` start/pause · `R` reset · `1` `2` `3` presets · `F` fullscreen · `M` mute · `H` hide controls · `D` audio diagnostics
 - Sounds are re-created from pitchtimer.com's cues (synthesized in the browser, no audio files):
   - **First warning:** a soft sine "bonk" (C5).
   - **Last warning:** a bright bell-like "ping".
@@ -45,7 +45,9 @@ Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5
 - The background turns amber after the first warning, orange after the last, and red in overtime.
 - Bookmarkable: `timer/?d=180&w=60,30&label=Demo` (values in seconds).
 - Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays all three cues and turns sound on if it was off) and the **Volume** slider to check levels.
-- Cues are scheduled on the audio clock when you press Start, so they play on time even if the tab is in the background or the screen dims. A "Sound is off" note shows on the timer whenever sound is muted (`M` toggles it).
+- How sound works (for the widest browser support): the three cues are generated once as WAV audio in plain JavaScript and played through ordinary `<audio>` elements when each time is reached, the same approach pitchtimer.com uses. Those elements are unlocked on your first click or key press, which iPhones and iPads require. `<audio>` also plays when an iPhone/iPad is on silent. If a browser refuses `<audio>`, Web Audio is used instead.
+- Keep the timer tab visible (as it is when projected). Browsers slow down background tabs, so a cue can be up to about a second late there; a cue more than 5 s overdue is skipped rather than played late.
+- A "Sound is off" note shows on the timer whenever sound is muted (`M` toggles it). Press `D` for a one-line audio diagnostics readout: playback method, Web Audio state, volume, last cue and last error.
 - The timer works from the clock rather than counting ticks, so it stays accurate if the tab is in the background. It also keeps the screen awake where the browser supports it.
 
 ## Judging form

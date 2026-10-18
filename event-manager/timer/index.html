@@ -65,6 +65,7 @@
   #hint { font-size: 1.6vh; opacity: .55; margin-top: .6vh; }
   #volWrap { display: inline-block; margin: .4vh .6vw; font-size: 2.1vh; font-weight: 700; vertical-align: middle; }
   #vol { width: 9vw; min-width: 90px; vertical-align: middle; accent-color: #ee512b; }
+  #diag { position: absolute; left: 1vw; right: 1vw; bottom: 1vh; z-index: 5; padding: .6vh 1vw; font: 1.6vh/1.4 Menlo, Consolas, monospace; background: rgba(0,0,0,.75); color: #fff; border-radius: 6px; }
   #audioNote { position: absolute; top: 8vh; left: 0; right: 0; text-align: center; font-size: 2.2vh; color: #ffd27a; display: none; }
 </style>
 </head>
@@ -72,6 +73,7 @@
 <div id="app">
   <div id="brand"><svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><polygon points="50.00,4.00 89.84,27.00 89.84,73.00 50.00,96.00 10.16,73.00 10.16,27.00"/><line x1="50" y1="50" x2="50.00" y2="4.00"/><line x1="50" y1="50" x2="89.84" y2="27.00"/><line x1="50" y1="50" x2="89.84" y2="73.00"/><line x1="50" y1="50" x2="50.00" y2="96.00"/><line x1="50" y1="50" x2="10.16" y2="73.00"/><line x1="50" y1="50" x2="10.16" y2="27.00"/></g></svg>startup48</div>
   <div id="label">Pitch</div>
+  <div id="diag" style="display:none"></div>
   <div id="audioNote">Click anywhere or press a key to enable sound</div>
   <div id="time">5:00</div>
   <div id="next"></div>
@@ -99,7 +101,7 @@
       Warnings <input id="cWarn" class="wide" value="1:00, 0:30" title="comma separated, m:ss or seconds">
       <button id="cApply">Apply</button>
     </div>
-    <div id="hint">Space start/pause · R reset · 1 2 3 presets · F fullscreen · M mute · H hide controls</div>
+    <div id="hint">Space start/pause · R reset · 1 2 3 presets · F fullscreen · M mute · H hide controls · D audio diagnostics</div>
   </div>
 </div>
 <script>
@@ -133,74 +135,19 @@
   }
 
   /* ---------- audio ---------- */
-  // Cues ported from pitch-timer-tones.js: a Web Audio re-creation of pitchtimer.com's
-  // warning / danger / end sounds, measured from the originals (no audio files).
-  // Kept in ES5 and without chained connect() calls so older browsers still work.
-  var AC = window.AudioContext || window.webkitAudioContext;
-  var ctx = null;
-  var master = null;
+  // Cues re-created from pitch-timer-tones.js (pitchtimer.com's warning / danger / end sounds).
+  // For the widest browser support they are rendered once to WAV in plain JavaScript and played
+  // through <audio> elements at the moment each cue is reached, as pitchtimer.com does. <audio> also
+  // plays when an iPhone/iPad is on silent. Web Audio is used only if an <audio> element refuses.
+  var CUE_RATE = 22050;     // ample for these sounds (highest partial 4.9 kHz)
+  var END_GAIN = 0.75;      // level trim so the noise cue matches the original's loudness
+  var CUE_NAMES = ['warning', 'danger', 'end'];
   var volume = 0.8;
-  var cueBus = null;       // gain node carrying the cues scheduled for the current run
-  var cueSync = null;      // wall-clock and audio-clock times when those cues were scheduled
-  var fallbackUri = null;
-
-  function ensureAudio() {
-    if (AC && !ctx) {
-      try {
-        ctx = new AC();
-        master = ctx.createGain();
-        master.gain.value = volume;
-        master.connect(ctx.destination);
-        // If the browser pauses audio mid-run, the audio clock falls behind real time;
-        // re-sync the scheduled cues when it starts again.
-        ctx.onstatechange = function () {
-          updateAudioNote();
-          if (!running || ctx.state !== 'running') { return; }
-          var drift = cueSync ? Math.abs((now() - cueSync.wall) / 1000 - (ctx.currentTime - cueSync.audio)) : Infinity;
-          if (!cueBus || drift > 0.05) { scheduleCues(); }
-        };
-      } catch (e) { ctx = null; master = null; }
-    }
-    if (ctx && ctx.state === 'suspended' && ctx.resume) { ctx.resume(); }
-    updateAudioNote();
-  }
-
-  function updateAudioNote() {
-    var note = $('audioNote');
-    if (muted) {
-      note.textContent = 'Sound is off \u2014 press M or the Sound button to turn it on';
-      note.style.display = 'block';
-    } else if (ctx && ctx.state === 'suspended') {
-      note.textContent = 'Click anywhere or press a key to enable sound';
-      note.style.display = 'block';
-    } else {
-      note.style.display = 'none';
-    }
-  }
-
-  // Schedule this run's remaining cues on the audio clock. Unlike page timers, the audio
-  // clock isn't slowed down when the tab is in the background or the screen sleeps.
-  function scheduleCues() {
-    cancelCues();
-    if (!running || muted || !ctx || !master || ctx.state !== 'running') { return; }
-    var rem = (endAt - now()) / 1000, t0 = ctx.currentTime + 0.02, w = cfg.warnings;
-    cueBus = ctx.createGain();
-    cueBus.connect(master);
-    cueSync = { wall: now(), audio: ctx.currentTime };
-    try {
-      for (var i = 0; i < w.length; i++) {
-        if (!fired[w[i]] && w[i] <= rem) {
-          TONES[i === w.length - 1 && w.length > 1 ? 'danger' : 'warning'](t0 + rem - w[i], cueBus);
-        }
-      }
-      if (!fired.zero && rem > 0) { TONES.end(t0 + rem, cueBus); }
-    } catch (e) { cancelCues(); }
-  }
-
-  // Silence anything scheduled (pause, reset, mute).
-  function cancelCues() {
-    if (cueBus) { try { cueBus.disconnect(); } catch (e) { } cueBus = null; }
-  }
+  var cues = null;          // name -> { pcm: Float32Array, url: string, el: HTMLAudioElement|null }
+  var unlocked = false;
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var ctx = null, master = null;
+  var diag = { path: '-', last: '-', error: '' };
 
   var imul = Math.imul || function (a, b) {
     var ah = (a >>> 16) & 0xffff, al = a & 0xffff, bh = (b >>> 16) & 0xffff, bl = b & 0xffff;
@@ -217,137 +164,218 @@
     };
   }
 
-  function chain(nodes) {
-    for (var i = 0; i < nodes.length - 1; i++) { nodes[i].connect(nodes[i + 1]); }
+  // Gain envelope with Web Audio's automation semantics. ev: [[type, value, time], ...],
+  // type 'set' (jump), 'lin' or 'exp' (ramp from the previous point).
+  function envelope(ev, n, rate) {
+    var out = new Float32Array(n), k = 0, v = ev[0][1], t;
+    for (var i = 0; i < n; i++) {
+      t = i / rate;
+      while (k + 1 < ev.length && t >= ev[k + 1][2]) { k++; v = ev[k][1]; }
+      var nx = ev[k + 1];
+      if (nx && nx[0] !== 'set' && t >= ev[k][2]) {
+        var f = (t - ev[k][2]) / (nx[2] - ev[k][2]);
+        v = nx[0] === 'lin' ? ev[k][1] + (nx[1] - ev[k][1]) * f : ev[k][1] * Math.pow(nx[1] / ev[k][1], f);
+      } else if (!nx || nx[0] === 'set') {
+        v = ev[k][1];
+      }
+      out[i] = v;
+    }
+    return out;
   }
 
-  // Level trim for the noise cue so its loudness matches the original.
-  var END_GAIN = 0.75;
+  // Biquad filter (Audio EQ Cookbook, as Web Audio uses; Q given in dB like Web Audio's lowpass/highpass).
+  function biquad(x, type, freq, qDb, rate) {
+    var w0 = 2 * Math.PI * freq / rate, cs = Math.cos(w0), alpha = Math.sin(w0) / (2 * Math.pow(10, qDb / 20));
+    var b0 = type === 'lowpass' ? (1 - cs) / 2 : (1 + cs) / 2, b1 = type === 'lowpass' ? 1 - cs : -(1 + cs), b2 = b0;
+    var a0 = 1 + alpha, a1 = -2 * cs, a2 = 1 - alpha;
+    var y = new Float32Array(x.length), x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (var i = 0; i < x.length; i++) {
+      var o = (b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0;
+      x2 = x1; x1 = x[i]; y2 = y1; y1 = o; y[i] = o;
+    }
+    return y;
+  }
 
-  // Each tone schedules itself at time t into node out and returns its length in seconds.
-  var TONES = {
-    // One clean sine at C5. Instant attack, smooth exponential decay (~0.25 s), ~0.8 s audible.
-    warning: function (t, out) {
-      var osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, t);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(0.7, t + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.04, t + 0.78);
-      g.gain.linearRampToValueAtTime(0, t + 0.85);
-      chain([osc, g, out]);
-      osc.start(t);
-      osc.stop(t + 0.9);
-      return 0.9;
-    },
-
-    // Short, bright, bell-like ping: three inharmonic sine partials.
-    danger: function (t, out) {
-      var partials = [[1575, 0.39], [3075, 0.44], [4925, 0.08]];
-      var g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(1, t + 0.05);
-      g.gain.linearRampToValueAtTime(0.8, t + 0.20);
-      g.gain.exponentialRampToValueAtTime(0.17, t + 0.31);
-      g.gain.exponentialRampToValueAtTime(0.07, t + 0.46);
-      g.gain.linearRampToValueAtTime(0, t + 0.55);
-      g.connect(out);
-      for (var i = 0; i < partials.length; i++) {
-        var osc = ctx.createOscillator(), pg = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(partials[i][0], t);
-        pg.gain.value = partials[i][1];
-        chain([osc, pg, g]);
-        osc.start(t);
-        osc.stop(t + 0.6);
+  // Render one cue to samples at CUE_RATE (numbers from pitch-timer-tones.js).
+  function synth(name) {
+    var r = CUE_RATE, n, i, out, env;
+    if (name === 'warning') {
+      // One clean sine at C5; instant attack, smooth exponential decay, ~0.8 s audible.
+      n = Math.floor(0.9 * r); out = new Float32Array(n);
+      env = envelope([['set', 0.0001, 0], ['lin', 0.7, 0.005], ['exp', 0.04, 0.78], ['lin', 0, 0.85]], n, r);
+      for (i = 0; i < n; i++) { out[i] = Math.sin(2 * Math.PI * 523.25 * i / r) * env[i]; }
+      return out;
+    }
+    if (name === 'danger') {
+      // Short bright ping: three inharmonic partials.
+      n = Math.floor(0.6 * r); out = new Float32Array(n);
+      env = envelope([['set', 0.0001, 0], ['lin', 1, 0.05], ['lin', 0.8, 0.2], ['exp', 0.17, 0.31], ['exp', 0.07, 0.46], ['lin', 0, 0.55]], n, r);
+      for (i = 0; i < n; i++) {
+        var t = i / r;
+        out[i] = env[i] * (0.39 * Math.sin(2 * Math.PI * 1575 * t) + 0.44 * Math.sin(2 * Math.PI * 3075 * t) + 0.08 * Math.sin(2 * Math.PI * 4925 * t));
       }
-      return 0.6;
-    },
+      return out;
+    }
+    // end: band-passed (800-2400 Hz) noise with ~25 Hz flutter; fades in after 150 ms, out by ~3.65 s.
+    var dur = 3.8, rand = mulberry32(8744);
+    n = Math.floor(dur * r);
+    // White noise spreads its power over 0..rate/2, so scale to the band energy the original had
+    // when rendered at a typical 48 kHz device rate.
+    var noise = new Float32Array(n), level = Math.sqrt(r / 48000);
+    for (i = 0; i < n; i++) { noise[i] = (rand() * 2 - 1) * level; }
+    var band = biquad(biquad(noise, 'highpass', 800, 0.7, r), 'lowpass', 2400, 0.7, r);
+    var steps = Math.floor(dur * 25), curve = [];
+    for (i = 0; i < steps; i++) { curve.push(0.7 + rand() * 0.6); }
+    env = envelope([['set', 0.0001, 0], ['set', 0.0001, 0.15], ['lin', 0.9, 0.75], ['set', 0.9, 3.1], ['lin', 0, 3.65]], n, r);
+    out = new Float32Array(n);
+    for (i = 0; i < n; i++) {
+      var p = (i / n) * (steps - 1), j = Math.floor(p), fl = curve[j] + (curve[Math.min(j + 1, steps - 1)] - curve[j]) * (p - j);
+      out[i] = band[i] * fl * env[i] * END_GAIN;
+    }
+    return out;
+  }
 
-    // Not a pitched tone: ~3.6 s of band-passed (800-2400 Hz), flickering noise that
-    // fades in over ~0.6 s, holds, then fades out from ~3.1 s.
-    end: function (t, out) {
-      var dur = 3.8;
-      var rand = mulberry32(8744);
-      var len = Math.floor(ctx.sampleRate * dur);
-      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      var data = buf.getChannelData(0);
-      for (var i = 0; i < len; i++) { data[i] = rand() * 2 - 1; }
+  // 16-bit mono WAV. Blob URL where supported, data: URI otherwise.
+  function wavUrl(pcm, rate) {
+    var n = pcm.length, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf), i;
+    function str(o, s) { for (var j = 0; j < s.length; j++) { dv.setUint8(o + j, s.charCodeAt(j)); } }
+    str(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    str(36, 'data'); dv.setUint32(40, n * 2, true);
+    for (i = 0; i < n; i++) { var s = Math.max(-1, Math.min(1, pcm[i])); dv.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+    try {
+      if (window.Blob && window.URL && URL.createObjectURL) { return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })); }
+    } catch (e) { }
+    var bytes = new Uint8Array(buf), bin = '';
+    for (i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
+    return 'data:audio/wav;base64,' + window.btoa(bin);
+  }
 
+  function buildCues() {
+    if (cues) { return; }
+    cues = {};
+    for (var i = 0; i < CUE_NAMES.length; i++) {
+      var name = CUE_NAMES[i], pcm = synth(name), el = null, url = wavUrl(pcm, CUE_RATE);
+      try { el = new Audio(); el.preload = 'auto'; el.src = url; if (el.load) { el.load(); } } catch (e) { el = null; }
+      cues[name] = { pcm: pcm, url: url, el: el };
+    }
+  }
+
+  // Must run inside a click/tap/keypress: browsers (iOS especially) only allow sound to start
+  // from a user gesture, so each <audio> element is played silently once to unlock it.
+  function unlockAudio() {
+    buildCues();
+    if (!unlocked) {
+      unlocked = true;
+      for (var i = 0; i < CUE_NAMES.length; i++) {
+        var el = cues[CUE_NAMES[i]].el;
+        if (!el) { continue; }
+        try {
+          el.muted = true;
+          var p = el.play();
+          (function (el) {
+            // Skip if a real cue has already claimed this element (playCue unmutes it first).
+            var done = function () { if (el.muted) { try { el.pause(); el.currentTime = 0; } catch (e) { } el.muted = false; } };
+            if (p && p.then) { p.then(done, function () { el.muted = false; }); } else { done(); }
+          })(el);
+        } catch (e) { el.muted = false; }
+      }
+    }
+    // Prepare the Web Audio fallback in the same gesture.
+    if (AC && !ctx) {
+      try {
+        ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = volume;
+        master.connect(ctx.destination);
+        // iOS 17+: let Web Audio play even when the ringer switch is on silent.
+        if (navigator.audioSession) { try { navigator.audioSession.type = 'playback'; } catch (e) { } }
+      } catch (e) { ctx = null; master = null; }
+    }
+    if (ctx && ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) { } }
+    updateAudioNote();
+  }
+
+  function playWebAudio(name) {
+    if (!ctx || !master) { return false; }
+    try {
+      var c = cues[name], buf = ctx.createBuffer(1, c.pcm.length, CUE_RATE);
+      if (buf.copyToChannel) { buf.copyToChannel(c.pcm, 0); } else { buf.getChannelData(0).set(c.pcm); }
       var src = ctx.createBufferSource();
       src.buffer = buf;
-
-      var hp = ctx.createBiquadFilter();
-      hp.type = 'highpass'; hp.frequency.value = 800; hp.Q.value = 0.7;
-      var lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.7;
-
-      // Overall fade in / hold / fade out.
-      var env = ctx.createGain();
-      env.gain.setValueAtTime(0.0001, t);
-      env.gain.setValueAtTime(0.0001, t + 0.15);
-      env.gain.linearRampToValueAtTime(0.9, t + 0.75);
-      env.gain.setValueAtTime(0.9, t + 3.1);
-      env.gain.linearRampToValueAtTime(0, t + 3.65);
-
-      // Random flutter on top (about 25 Hz, +/-30%).
-      var flutter = ctx.createGain();
-      var steps = Math.floor(dur * 25);
-      var curve = new Float32Array(steps);
-      for (var j = 0; j < steps; j++) { curve[j] = 0.7 + rand() * 0.6; }
-      flutter.gain.setValueCurveAtTime(curve, t, dur);
-
-      var trim = ctx.createGain();
-      trim.gain.value = END_GAIN;
-
-      chain([src, hp, lp, flutter, env, trim, out]);
-      src.start(t);
-      return dur;
+      src.connect(master);
+      if (src.start) { src.start(0); } else { src.noteOn(0); }
+      diag.path = 'Web Audio (' + ctx.state + ')';
+      return true;
+    } catch (e) {
+      diag.error = 'Web Audio: ' + (e && e.name ? e.name : e);
+      return false;
     }
-  };
+  }
 
-  // Without Web Audio: 1, 2 or 3 short beeps so the cues are still distinguishable.
-  var FALLBACK_BEEPS = { warning: 1, danger: 2, end: 3 };
+  function playCue(name) {
+    buildCues();
+    var c = cues[name], el = c.el;
+    diag.last = name + ' at ' + new Date().toLocaleTimeString();
+    if (!el) { playWebAudio(name); updateDiag(); return; }
+    try {
+      el.pause();
+      el.currentTime = 0;
+      el.muted = false;
+      el.volume = volume;
+      var p = el.play();
+      diag.path = '<audio> element';
+      if (p && p.then) {
+        p.then(updateDiag, function (err) {
+          // Refused (e.g. NotAllowedError when audio wasn't unlocked by a gesture): try Web Audio.
+          diag.error = '<audio>: ' + (err && err.name ? err.name : err);
+          playWebAudio(name);
+          updateDiag();
+        });
+      }
+    } catch (e) {
+      diag.error = '<audio>: ' + (e && e.name ? e.name : e);
+      playWebAudio(name);
+    }
+    updateDiag();
+  }
 
   // Play a cue now, or `delay` seconds from now.
   function play(name, delay) {
     if (muted) { return; }
-    delay = delay || 0;
-    if (ctx && master) {
-      try { TONES[name](ctx.currentTime + 0.02 + delay, master); } catch (e) { }
-      return;
-    }
-    try {
-      if (!fallbackUri) { fallbackUri = makeWav(880, 0.25); }
-      var n = FALLBACK_BEEPS[name] || 1, k = 0;
-      var next = function () {
-        var a = new Audio(fallbackUri);
-        a.volume = volume;
-        a.play();
-        if (++k < n) { setTimeout(next, 350); }
-      };
-      setTimeout(next, delay * 1000);
-    } catch (e) { }
+    if (delay) { setTimeout(function () { if (!muted) { playCue(name); } }, delay * 1000); } else { playCue(name); }
   }
 
   function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
     if (master) { master.gain.value = volume; }
+    if (cues) { for (var k in cues) { if (cues.hasOwnProperty(k) && cues[k].el) { cues[k].el.volume = volume; } } }
     $('vol').value = Math.round(volume * 100);
     store('volume', String(volume));
   }
 
-  function makeWav(freq, secs) {
-    var rate = 8000, n = Math.floor(rate * secs), bytes = [], i;
-    function u32(v) { bytes.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); }
-    function u16(v) { bytes.push(v & 255, (v >> 8) & 255); }
-    function str(s) { for (var j = 0; j < s.length; j++) { bytes.push(s.charCodeAt(j)); } }
-    str('RIFF'); u32(36 + n); str('WAVE'); str('fmt '); u32(16); u16(1); u16(1); u32(rate); u32(rate); u16(1); u16(8);
-    str('data'); u32(n);
-    for (i = 0; i < n; i++) { bytes.push(Math.sin(2 * Math.PI * freq * i / rate) > 0 ? 220 : 36); }
-    var bin = '';
-    for (i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
-    return 'data:audio/wav;base64,' + window.btoa(bin);
+  function updateAudioNote() {
+    var note = $('audioNote');
+    if (muted) {
+      note.textContent = 'Sound is off — press M or the Sound button to turn it on';
+      note.style.display = 'block';
+    } else if (!unlocked) {
+      note.textContent = 'Click anywhere or press a key to enable sound';
+      note.style.display = 'block';
+    } else {
+      note.style.display = 'none';
+    }
+  }
+
+  // Press D for an audio diagnostics line (which playback path is used, and any error).
+  function updateDiag() {
+    var d = $('diag');
+    if (d.style.display === 'none') { return; }
+    d.textContent = 'Audio: ' + diag.path + ' | unlocked: ' + (unlocked ? 'yes' : 'no') +
+      ' | Web Audio: ' + (ctx ? ctx.state : (AC ? 'not started' : 'unsupported')) +
+      ' | sound: ' + (muted ? 'off' : 'on') + ', volume ' + Math.round(volume * 100) + '%' +
+      ' | last cue: ' + diag.last + (diag.error ? ' | last error: ' + diag.error : '');
   }
 
   /* ---------- time helpers ---------- */
@@ -417,19 +445,18 @@
     setPhase(phase);
   }
 
-  // Marks cues as passed. They normally play from the audio-clock schedule (scheduleCues);
-  // this only plays them itself when nothing was scheduled (no Web Audio).
+  // Plays each cue once, when its time is crossed. Cues more than 5 s overdue (e.g. a background
+  // tab the browser had paused) are skipped rather than played late.
   function checkTones() {
-    var sec = remaining() / 1000, w = cfg.warnings, scheduled = !!cueBus;
+    var sec = remaining() / 1000, w = cfg.warnings;
     for (var i = 0; i < w.length; i++) {
       if (!fired[w[i]] && sec <= w[i]) {
         fired[w[i]] = true;
-        // Only sound if we crossed it recently (not when jumping in mid-way).
         // Last warning gets the danger cue, earlier ones the warning cue.
-        if (!scheduled && sec > w[i] - 2) { play(i === w.length - 1 && w.length > 1 ? 'danger' : 'warning'); }
+        if (sec > w[i] - 5) { play(i === w.length - 1 && w.length > 1 ? 'danger' : 'warning'); }
       }
     }
-    if (!fired.zero && sec <= 0) { fired.zero = true; if (!scheduled && sec > -2) { play('end'); } }
+    if (!fired.zero && sec <= 0) { fired.zero = true; if (sec > -5) { play('end'); } }
   }
 
   function tick() { checkTones(); render(); }
@@ -451,7 +478,7 @@
   }
 
   function start() {
-    ensureAudio();
+    unlockAudio();
     if (running) { return; }
     // Mark warnings already behind us so resuming doesn't replay them.
     var sec = remainingMs / 1000;
@@ -459,7 +486,6 @@
     if (remainingMs <= 0) { fired.zero = true; }
     endAt = now() + remainingMs;
     running = true;
-    scheduleCues();
     tickHandle = setInterval(tick, 100);
     $('start').textContent = 'Pause';
     requestWakeLock();
@@ -469,7 +495,6 @@
   function stop() {
     if (running) { remainingMs = endAt - now(); }
     running = false;
-    cancelCues();
     clearInterval(tickHandle);
     $('start').textContent = remainingMs < cfg_duration_ms() ? 'Resume' : 'Start';
     releaseWakeLock();
@@ -511,8 +536,8 @@
     muted = m;
     $('mute').textContent = 'Sound: ' + (muted ? 'off' : 'on');
     store('muted', muted ? '1' : '0');
-    if (running) { if (muted) { cancelCues(); } else { scheduleCues(); } }
     updateAudioNote();
+    updateDiag();
   }
 
   function applyCustom() {
@@ -541,12 +566,13 @@
   on($('mute'), 'click', function () { setMuted(!muted); });
   // Test plays all three cues in order (about 6 s) so levels can be checked before pitches start.
   // It turns sound on first, so a passing test means the countdown will be heard too.
-  on($('test'), 'click', function () { ensureAudio(); if (muted) { setMuted(false); } play('warning', 0); play('danger', 1.3); play('end', 2.3); });
+  on($('test'), 'click', function () { unlockAudio(); if (muted) { setMuted(false); } play('warning', 0); play('danger', 1.3); play('end', 2.3); });
   on($('vol'), 'input', function () { setVolume($('vol').value / 100); });
   on($('vol'), 'change', function () { setVolume($('vol').value / 100); $('vol').blur(); });
   on($('fs'), 'click', toggleFullscreen);
   on($('hide'), 'click', toggleHide);
-  on(document, 'click', ensureAudio);
+  on(document, 'click', unlockAudio);
+  on(document, 'touchend', unlockAudio);
   on(window, 'resize', fitText);
   on(document, 'visibilitychange', function () { if (!document.hidden && running) { requestWakeLock(); } });
 
@@ -556,9 +582,9 @@
     if (tag === 'INPUT' && !isRange) { if (e.keyCode === 13) { applyCustom(); } return; }
     // The volume slider keeps its arrow keys; every other shortcut still works while it has focus.
     if (isRange && e.keyCode >= 37 && e.keyCode <= 40) { return; }
-    ensureAudio();
+    unlockAudio();
     var k = e.keyCode;
-    if (k === 32) { toggle(); } else if (k === 82) { reset(); } else if (k === 70) { toggleFullscreen(); } else if (k === 77) { setMuted(!muted); } else if (k === 72) { toggleHide(); } else if (k >= 49 && k <= 51) { load(PRESETS[k - 49], k - 49); } else { return; }
+    if (k === 32) { toggle(); } else if (k === 82) { reset(); } else if (k === 70) { toggleFullscreen(); } else if (k === 77) { setMuted(!muted); } else if (k === 72) { toggleHide(); } else if (k === 68) { var dg = $('diag'); dg.style.display = dg.style.display === 'none' ? 'block' : 'none'; updateDiag(); } else if (k >= 49 && k <= 51) { load(PRESETS[k - 49], k - 49); } else { return; }
     if (e.preventDefault) { e.preventDefault(); }
     if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
   });
