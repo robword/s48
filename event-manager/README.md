@@ -128,7 +128,7 @@ The file does hold names, headshots and the Wi-Fi password, so share it accordin
    - submitted
    - % of openers who submitted
    - the live ranking (ties share a rank, shown as T2; ideas with no votes show –)
-6. Click **Close voting**. **Reopen** is available. **Reset** starts a fresh round. Old round files stay in `data/rounds/` and are never deleted.
+6. Click **Close voting**. **Reopen voting** is available. **Reset** starts a fresh round. Old round files stay in `data/rounds/` and are never deleted.
 
 ### Team selection
 

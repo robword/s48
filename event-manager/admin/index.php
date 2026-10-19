@@ -235,7 +235,7 @@ $csrf = s48_csrf_token();
       <div class="controls">
         <button class="primary big" id="btnStart">Start voting</button>
         <button class="big" id="btnClose">Close voting</button>
-        <button class="big" id="btnReopen">Reopen</button>
+        <button class="big" id="btnReopen">Reopen voting</button>
         <button class="primary big" id="btnTeams">Start team selection</button>
         <span id="phaseBox" class="phasebox" hidden>
           <span class="pill teams" id="phaseName"></span>
