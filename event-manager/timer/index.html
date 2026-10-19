@@ -81,7 +81,7 @@
   <div id="brand"><svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><polygon points="50.00,4.00 89.84,27.00 89.84,73.00 50.00,96.00 10.16,73.00 10.16,27.00"/><line x1="50" y1="50" x2="50.00" y2="4.00"/><line x1="50" y1="50" x2="89.84" y2="27.00"/><line x1="50" y1="50" x2="89.84" y2="73.00"/><line x1="50" y1="50" x2="50.00" y2="96.00"/><line x1="50" y1="50" x2="10.16" y2="73.00"/><line x1="50" y1="50" x2="10.16" y2="27.00"/></g></svg>startup48</div>
   <div id="label">Final Pitch</div>
   <div id="diag" style="display:none"></div>
-  <div id="audioNote">Click anywhere or press a key to enable sound</div>
+  <div id="audioNote"></div>
   <div id="time">5:00</div>
   <div id="next"></div>
   <div id="controls">
@@ -448,10 +448,7 @@
     if (muted) {
       note.textContent = 'Sound is off — press M or the Sound button to turn it on';
       note.style.display = 'block';
-    } else if (!unlocked) {
-      note.textContent = 'Click anywhere or press a key to enable sound';
-      note.style.display = 'block';
-    } else {
+    } else {   // no "click to enable sound" hint: starting the timer is itself the click that unlocks audio
       note.style.display = 'none';
     }
   }
