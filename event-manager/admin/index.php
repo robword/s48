@@ -80,6 +80,14 @@ $csrf = s48_csrf_token();
   .stat.teamfit.bad .v { color: var(--s48-bad); }
   /* Team selection: phase controls and the balance view */
   .phasebox[hidden], #rosterLink[hidden] { display: none; }
+  /* Phase step bar: done steps dimmed, the current one highlighted */
+  .steps { display: inline-flex; list-style: none; margin: 0; padding: 0; border-radius: 999px; overflow: hidden; border: 1px solid var(--s48-line); }
+  .steps li { padding: 7px 14px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--s48-muted); }
+  .steps li + li { border-left: 1px solid var(--s48-line); }
+  .steps li.done { color: var(--s48-text); opacity: .6; }
+  .steps li.on { background: var(--s48-accent-2); color: #042; }
+  button.ghost { background: transparent; border: 1px solid var(--s48-line); color: var(--s48-muted); padding: 6px 12px; font-size: 13px; }
+  button.ghost:hover { color: var(--s48-text); border-color: var(--s48-muted); }
   .phasebox { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .phasebox .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; min-width: 4ch; }
   .phasebox .clock.up { color: var(--s48-bad); animation: blink 1s steps(2) infinite; }
@@ -238,12 +246,13 @@ $csrf = s48_csrf_token();
         <button class="big" id="btnReopen">Reopen voting</button>
         <button class="primary big" id="btnTeams">Start team selection</button>
         <span id="phaseBox" class="phasebox" hidden>
-          <span class="pill teams" id="phaseName"></span>
+          <ol class="steps" id="phaseSteps" aria-label="Team selection phases">
+            <li data-ph="explore">Explore</li><li data-ph="choose">Choose</li><li data-ph="finalize">Finalize</li><li data-ph="set">Teams are set</li>
+          </ol>
           <span class="clock" id="phaseClock"></span>
-          <button class="big" id="btnPhaseBack"></button>
+          <button class="big" id="btnPhaseBack">◀ Back</button>
           <button class="primary big" id="btnPhaseNext"></button>
         </span>
-        <button class="big" id="btnTeamsStop">Stop team selection</button>
         <span class="spacer" style="flex:1"></span>
         <span class="muted" id="updated"></span>
       </div>
@@ -262,6 +271,7 @@ $csrf = s48_csrf_token();
           <span class="muted" id="boardPicked"></span>
           <span class="spacer" style="flex:1"></span>
           <a href="../api/rosters.php" download id="rosterLink">Download rosters (CSV)</a>
+          <button class="ghost" id="btnTeamsStop" title="Leave team selection to change which ideas advance">Change advancing ideas</button>
         </div>
         <div class="board" id="board"></div>
       </div>
@@ -481,7 +491,6 @@ $csrf = s48_csrf_token();
     $('btnClose').style.display = st === 'open' ? '' : 'none';
     $('btnReopen').style.display = st === 'closed' ? '' : 'none';
     $('btnTeams').style.display = st === 'closed' ? '' : 'none';
-    $('btnTeamsStop').style.display = st === 'teams' ? '' : 'none';
     $('btnTeams').disabled = !data.advance.length;
     renderTeamCard(st);
     renderBoard(st);
@@ -548,11 +557,11 @@ $csrf = s48_csrf_token();
     if (!on) { boardKey = null; return; }
     clockOffset = b.server_time * 1000 - Date.now();
     var i = PHASES.indexOf(b.phase);
-    $('phaseName').textContent = PHASE_LABEL[b.phase];
+    document.querySelectorAll('#phaseSteps li').forEach(function (li, k) { li.className = k < i ? 'done' : k === i ? 'on' : ''; });
     $('btnPhaseNext').style.display = NEXT_LABEL[b.phase] ? '' : 'none';
-    $('btnPhaseNext').textContent = NEXT_LABEL[b.phase] || '';
+    $('btnPhaseNext').textContent = (NEXT_LABEL[b.phase] || '') + ' ▶';
     $('btnPhaseBack').style.display = i > 0 ? '' : 'none';
-    $('btnPhaseBack').textContent = i > 0 ? 'Back to ' + PHASE_LABEL[PHASES[i - 1]] : '';
+    $('btnPhaseBack').title = i > 0 ? 'Back to ' + PHASE_LABEL[PHASES[i - 1]] : '';
     tickPhase();
     var f = b.fit, exploring = b.phase === 'explore';
     // While exploring nobody can pick yet: no counts, tags or rosters, just the stations.
@@ -663,7 +672,7 @@ $csrf = s48_csrf_token();
     if (confirm(msg)) { act('teams_start'); }
   };
   $('btnTeamsStop').onclick = function () {
-    if (confirm('Stop team selection? The slide goes back to the usual bullets and phones stop showing teams. Picks are kept if you start again.')) { act('teams_stop'); }
+    if (confirm('Change the advancing ideas?\n\nThis leaves team selection: the slide goes back to its usual bullets, phones show "Voting closed", and the Advance checkboxes unlock. Picks are kept, and Start team selection begins again at Explore.')) { act('teams_stop'); }
   };
   $('btnPhaseNext').onclick = function () {
     var i = PHASES.indexOf(data.board.phase), next = PHASES[i + 1];
