@@ -83,10 +83,23 @@
 
   /* Form your team: once team selection starts, the advancing ideas in pitch order */
   .teamline { font-family: var(--s48-font-heading); font-weight: 600; font-size: 40px; margin: -24px 0 40px; color: var(--s48-accent-2); }
-  .teams { display: grid; gap: 24px; }
-  .teams .t { border-radius: 16px; padding: 30px 34px; color: #fff; display: flex; align-items: center; gap: 24px; min-height: 120px; }
-  .teams.dense .t { min-height: 92px; padding: 20px 28px; }
-  .teams .t .nm { font-family: var(--s48-font-display); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+  .phaseclock { position: absolute; right: 140px; top: 120px; font-family: var(--s48-font-display); font-weight: 700; font-size: 130px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .phaseclock .d { display: inline-block; width: .64em; text-align: center; }
+  .phaseclock.up { color: var(--s48-orange); animation: pulse 1s ease-in-out infinite; }
+  .teamsrow { display: flex; gap: 40px; align-items: flex-start; }
+  .teams { display: grid; gap: 24px; flex: 1; }
+  .teams .t { border-radius: 16px; padding: 26px 30px; color: #fff; display: flex; align-items: center; gap: 22px; min-height: 120px; }
+  .teams.dense .t { min-height: 92px; padding: 18px 24px; }
+  .teams .t .st { flex: none; width: 1.7em; height: 1.7em; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--s48-navy); display: flex; align-items: center; justify-content: center; font-family: var(--s48-font-display); font-weight: 800; font-size: .9em; }
+  .teams .t .body { min-width: 0; }
+  .teams .t .nm { font-family: var(--s48-font-display); font-weight: 700; line-height: 1.15; overflow-wrap: break-word; hyphens: auto; }
+  .teams .t .ct { font-family: var(--s48-font-heading); font-weight: 600; font-size: .62em; margin-top: 6px; opacity: .95; }
+  .teams .t .tag { display: inline-block; margin-left: 10px; padding: 2px 12px; border-radius: 999px; background: rgba(0, 0, 0, .28); font-size: .85em; }
+  .teams .t.under .tag { background: #fff; color: var(--s48-navy); }
+  .teamqr { flex: none; width: 400px; text-align: center; }
+  .teamqr .code { width: 400px; height: 400px; background: #fff; border-radius: 16px; padding: 16px; box-sizing: border-box; }
+  .teamqr .code svg { width: 100%; height: 100%; display: block; }
+  .teamqr .cap { font-family: var(--s48-font-heading); font-weight: 700; font-size: 32px; margin-top: 16px; color: var(--s48-accent-2); }
   @keyframes pulse { 50% { opacity: .45; } }
 </style>
 </head>
@@ -206,11 +219,15 @@
 
   <!-- 8. Next steps -->
   <section class="slide" data-id="next">
-    <div class="kicker">What's next</div>
-    <h2>Form your team</h2>
+    <div class="kicker" id="nextKicker">What's next</div>
+    <h2 id="nextTitle">Form your team</h2>
+    <div class="phaseclock" id="phaseClock" hidden></div>
     <div id="teamsLive" hidden>
       <p class="teamline" id="teamLine"></p>
-      <div class="teams" id="teamTiles"></div>
+      <div class="teamsrow">
+        <div class="teams" id="teamTiles"></div>
+        <div class="teamqr" id="teamQr" hidden><div class="code" id="teamQrCode"></div><div class="cap">Scan to pick your team</div></div>
+      </div>
     </div>
     <ul class="big" id="nextStatic">
       <li>Top ideas come to the front</li>
@@ -392,35 +409,68 @@
     lastStatus = res.status;
   }
 
-  var lastTeams = null;
+  // "Form your team" during team selection: stations 1..N in pitch order, the phase and its
+  // countdown, and (Choose / Finalize) the QR code plus live counts against the ideal team size.
+  var lastTeams = null, board = null, clockOffset = 0, lastQr = null;
+  var PHASE = {
+    explore: { kicker: 'Explore the teams', line: 'Visit each station and talk to the team. Don’t decide yet.' },
+    choose: { kicker: 'Choose your team', line: 'Scan the code and pick the team you’d like to join.' },
+    finalize: { kicker: 'Finalize teams', line: 'Teams marked “needs people” are looking for you. You can still switch on your phone.' },
+    set: { kicker: 'Final teams', line: '' }
+  };
   function renderTeams(res) {
-    var on = res.status === 'teams' && res.teams && res.teams.length;
-    document.getElementById('teamsLive').hidden = !on;
-    document.getElementById('nextStatic').style.display = on ? 'none' : '';
-    if (!on) { lastTeams = null; return; }
-    var key = JSON.stringify([res.teams, res.team]);
+    board = res.status === 'teams' && res.board && res.board.teams.length ? res.board : null;
+    document.getElementById('teamsLive').hidden = !board;
+    document.getElementById('nextStatic').style.display = board ? 'none' : '';
+    document.getElementById('nextKicker').textContent = board ? PHASE[board.phase].kicker : 'What’s next';
+    document.getElementById('nextTitle').textContent = board && board.phase === 'set' ? 'Teams are set' : 'Form your team';
+    tickClock();
+    if (!board) { lastTeams = null; return; }
+    clockOffset = board.server_time * 1000 - Date.now();
+    var qrOn = board.phase === 'choose' || board.phase === 'finalize';
+    document.getElementById('teamQr').hidden = !qrOn;
+    if (qrOn && lastQr !== res.vote_url) { document.getElementById('teamQrCode').innerHTML = S48.qrSvg(res.vote_url, '#0f1222', '#ffffff'); lastQr = res.vote_url; }
+    var key = JSON.stringify([board.phase, board.teams, board.fit]);
     if (key === lastTeams) { return; }
     lastTeams = key;
-    var n = res.teams.length, t = res.team || {}, line = n + (n === 1 ? ' team' : ' teams');
-    if (t.participants > 0) {
-      var lo = Math.floor(t.participants / n), hi = Math.ceil(t.participants / n);
-      line += ' · ' + (lo === hi ? lo : lo + '–' + hi) + ' people per team';
+    var n = board.teams.length, f = board.fit, line = PHASE[board.phase].line;
+    if (board.phase === 'set') {
+      line = n + (n === 1 ? ' team' : ' teams') + ' · ' + board.picked + (f.participants ? ' of ' + f.participants : '') + ' people placed';
     }
     document.getElementById('teamLine').textContent = line;
-    // Columns and type size so 1 to ~16 names fill the space below the title.
-    var cols = n <= 3 ? n : n === 4 ? 2 : n <= 12 ? 4 : 5, rows = Math.ceil(n / cols);
+    // Columns and type size so 1 to ~16 names fill the space below the title (narrower beside the QR).
+    var cols = qrOn ? (n <= 2 ? n : n <= 6 ? 2 : 3) : (n <= 3 ? n : n === 4 ? 2 : n <= 12 ? 4 : 5), rows = Math.ceil(n / cols);
     var box = document.getElementById('teamTiles'), colors = ['c-orange', 'c-teal', 'c-slate', 'c-deep'];
     box.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-    box.style.fontSize = (rows === 1 ? 56 : rows === 2 ? 46 : rows === 3 ? 38 : 32) + 'px';
+    var big = cols >= 4 ? 0.87 : 1;   // narrower tiles get a smaller size so names wrap between words
+    box.style.fontSize = Math.round(big * (rows === 1 ? 56 : rows === 2 ? 46 : rows === 3 ? 38 : rows === 4 ? 32 : 28)) + 'px';
     box.className = 'teams' + (rows >= 3 ? ' dense' : '');
     box.innerHTML = '';
-    for (var i = 0; i < n; i++) {
-      var d = document.createElement('div'), nm = document.createElement('div');
-      d.className = 't ' + colors[i % colors.length];
-      nm.className = 'nm'; nm.textContent = res.teams[i];
-      d.appendChild(nm); box.appendChild(d);
-    }
+    board.teams.forEach(function (t, i) {
+      var d = document.createElement('div'), st = document.createElement('div'), body = document.createElement('div'), nm = document.createElement('div');
+      d.className = 't ' + colors[i % colors.length] + (t.fit ? ' ' + t.fit : '');
+      st.className = 'st'; st.textContent = t.station;
+      body.className = 'body'; nm.className = 'nm'; nm.textContent = t.name; body.appendChild(nm);
+      if (typeof t.count === 'number') {
+        var ct = document.createElement('div'), tag = document.createElement('span');
+        ct.className = 'ct'; ct.textContent = t.count + (t.count === 1 ? ' person' : ' people');
+        if (board.phase !== 'set' && t.fit !== 'ok') { tag.className = 'tag'; tag.textContent = t.fit === 'under' ? 'needs people' : 'full'; ct.appendChild(tag); }
+        body.appendChild(ct);
+      }
+      d.appendChild(st); d.appendChild(body); box.appendChild(d);
+    });
   }
+  // Phase countdown, synced to the server clock; holds at 0:00 and pulses until the operator moves on.
+  function tickClock() {
+    var c = document.getElementById('phaseClock');
+    if (!board || !board.phase_seconds) { c.hidden = true; return; }
+    var left = Math.max(0, Math.ceil(board.phase_at + board.phase_seconds - (Date.now() + clockOffset) / 1000));
+    var txt = Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2);
+    c.hidden = false;
+    c.className = 'phaseclock' + (left === 0 ? ' up' : '');
+    c.innerHTML = txt.split('').map(function (ch) { return ch === ':' ? ':' : '<span class="d">' + ch + '</span>'; }).join('');
+  }
+  setInterval(tickClock, 250);
 
   fit();
   go(fromHash(), true);

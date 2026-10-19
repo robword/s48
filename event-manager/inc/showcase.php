@@ -36,6 +36,9 @@ function s48_default_showcase(): array
             'participants' => 0,   // for team sizing; 0 = not set
             'team_min' => 4,
             'team_max' => 6,
+            'phase_explore' => 5,  // team selection phase lengths, minutes
+            'phase_choose' => 5,
+            'phase_finalize' => 5,
         ],
         'updated_at' => time(),
     ];
@@ -183,7 +186,15 @@ function s48_team_fields(array $in, array $cur): array
     if ($min < 1 || $max > 50 || $min > $max) {
         throw new S48Error('Ideal team size: enter a range like 4 to 6');
     }
-    return ['participants' => $p, 'team_min' => $min, 'team_max' => $max];
+    $out = ['participants' => $p, 'team_min' => $min, 'team_max' => $max];
+    foreach (['explore' => 'Explore', 'choose' => 'Choose', 'finalize' => 'Finalize'] as $k => $label) {
+        $m = (int) ($in['phase_' . $k] ?? $cur['phase_' . $k] ?? 5);
+        if ($m < 1 || $m > 60) {
+            throw new S48Error($label . ' phase must be 1 to 60 minutes');
+        }
+        $out['phase_' . $k] = $m;
+    }
+    return $out;
 }
 
 /**

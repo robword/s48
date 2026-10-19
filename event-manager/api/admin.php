@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../inc/auth.php';
-require __DIR__ . '/../inc/showcase.php';
+require __DIR__ . '/../inc/teams.php';
 
 function s48_find_pitch(array $state, string $id): int
 {
@@ -29,6 +29,7 @@ function s48_dashboard(array $state): array
         'results' => s48_results($state),
         'advance' => array_column(s48_advancing($state), 'id'),
         'team' => s48_team_fit((int) $info['participants'], count(s48_advancing($state)), (int) $info['team_min'], (int) $info['team_max']),
+        'board' => $state['status'] === 'teams' ? s48_team_board($state, true) : null,
         'server_time' => time(),
     ];
 }
@@ -133,6 +134,38 @@ s48_api(static function () {
                     throw new S48Error('Tick at least one idea to advance');
                 }
                 $s['status'] = 'teams';
+                $s['phase'] = 'explore';
+                $s['phase_at'] = time();
+                break;
+
+            case 'teams_phase':
+                // Explore -> Choose -> Finalize -> Teams are set; the operator can also step back.
+                $phase = (string) ($body['phase'] ?? '');
+                if ($s['status'] !== 'teams' || !in_array($phase, S48_PHASES, true)) {
+                    throw new S48Error('Team selection has not started', 409);
+                }
+                $s['phase'] = $phase;
+                $s['phase_at'] = time();
+                break;
+
+            case 'pick_move':
+                // Organizer moves someone to another team ('' removes their pick).
+                if ($s['status'] !== 'teams') {
+                    throw new S48Error('Team selection has not started', 409);
+                }
+                $file = s48_pick_file($s, (string) ($body['key'] ?? ''));
+                $pick = s48_read_json($file);
+                if (!is_array($pick)) {
+                    throw new S48Error('That pick no longer exists', 404);
+                }
+                $team = (string) ($body['team'] ?? '');
+                if ($team === '') {
+                    @unlink($file);
+                } elseif (!in_array($team, $s['advance'] ?? [], true)) {
+                    throw new S48Error('Unknown team');
+                } else {
+                    s48_write_atomic($file, json_encode(['team' => $team, 'moved' => true] + $pick));
+                }
                 break;
 
             case 'teams_stop':
@@ -140,6 +173,7 @@ s48_api(static function () {
                     throw new S48Error('Team selection has not started', 409);
                 }
                 $s['status'] = 'closed';
+                $s['phase'] = null;
                 break;
 
             case 'reset':

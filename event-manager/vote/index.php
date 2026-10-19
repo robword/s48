@@ -57,13 +57,28 @@ try {
   .panel h2 { font-family: var(--s48-font-display); font-weight: 700; font-size: 24px; margin: 0 0 8px; }
   .panel p { color: var(--s48-muted); margin: 0; }
   .hidden { display: none !important; }
+  /* Team selection */
+  #teams h2 { font-family: var(--s48-font-display); font-weight: 700; font-size: 22px; margin: 8px 0 4px; }
+  #teams .lead { color: var(--s48-muted); margin: 0 0 10px; font-size: 15px; line-height: 1.4; }
+  .tlist li { cursor: default; }
+  .tlist.pickable li { cursor: pointer; }
+  .tlist li.mine { border-color: var(--s48-accent); background: var(--s48-surface-2); }
+  .st { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--s48-accent); color: var(--s48-on-accent); display: flex; align-items: center; justify-content: center; font-family: var(--s48-font-display); font-weight: 700; }
+  .tc { font-size: 13px; color: var(--s48-muted); white-space: nowrap; }
+  .tc.under { color: var(--s48-bad); font-weight: 700; }
+  .field { margin: 16px 0 6px; font-weight: 700; font-size: 15px; }
+  .nameIn { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; border-radius: 10px; border: 1px solid var(--s48-line); background: var(--s48-surface); color: var(--s48-text); }
+  .skills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .skills button { padding: 12px 4px; border-radius: 10px; border: 2px solid var(--s48-line); background: var(--s48-surface); color: var(--s48-text); font-size: 15px; font-weight: 700; }
+  .skills button.on { border-color: var(--s48-accent); background: var(--s48-accent); color: var(--s48-on-accent); }
+  .mypick { margin: 12px 0; padding: 14px; border-radius: 12px; background: var(--s48-surface); border: 2px solid var(--s48-good); font-size: 16px; line-height: 1.4; }
 </style>
 </head>
 <body class="s48-light">
 <div class="wrap">
   <header>
     <div class="s48-wordmark" style="font-size:20px">startup<span>48</span></div>
-    <h1>Vote for your favorite ideas</h1>
+    <h1 id="heading">Vote for your favorite ideas</h1>
     <p id="intro">You have <strong>3 votes</strong>. Put them all on one idea or spread them out.<span id="changeNote" class="hidden"> You can change your votes until voting closes.</span></p>
   </header>
 
@@ -78,6 +93,23 @@ try {
   <div id="error" class="panel hidden">
     <h2>Can't reach the voting server</h2>
     <p>Check your connection. Retrying…</p>
+  </div>
+
+  <div id="teams" class="hidden">
+    <h2 id="tTitle"></h2>
+    <p class="lead" id="tLead"></p>
+    <div class="mypick hidden" id="tMine"></div>
+    <ul class="tlist" id="tList"></ul>
+    <div id="tForm" class="hidden">
+      <div class="field">Your first name</div>
+      <input class="nameIn" id="tName" maxlength="40" autocomplete="given-name" placeholder="First name">
+      <div class="field">What do you bring?</div>
+      <div class="skills" id="tSkills">
+        <button type="button" data-skill="build">Build</button><button type="button" data-skill="design">Design</button><button type="button" data-skill="business">Business</button><button type="button" data-skill="other">Other</button>
+      </div>
+      <div class="msg" id="tMsg" style="margin-top:14px"></div>
+      <button class="submit" id="tSubmit" disabled>Pick a team above</button>
+    </div>
   </div>
 
   <div id="voting" class="hidden">
@@ -112,11 +144,12 @@ try {
   }
 
   function show(which) {
-    var ids = ['waiting', 'closed', 'error', 'voting'];
+    var ids = ['waiting', 'closed', 'error', 'voting', 'teams'];
     for (var i = 0; i < ids.length; i++) { $(ids[i]).className = $(ids[i]).className.replace(/\s*hidden/g, '') + (ids[i] === which ? '' : ' hidden'); }
     $('bar').className = which === 'voting' ? 'bar' : 'bar hidden';
     // Instructions only make sense before/while voting; the re-vote note only while voting.
     $('intro').className = which === 'voting' || which === 'waiting' ? '' : 'hidden';
+    $('heading').textContent = which === 'teams' ? 'Find your team' : 'Vote for your favorite ideas';
     $('changeNote').className = which === 'voting' ? '' : 'hidden';
   }
 
@@ -203,9 +236,13 @@ try {
         show('voting');
         if (first) { loadBallot(); } else { renderList(); }
         schedule(15000);
+      } else if (res.status === 'teams' && res.board) {
+        show('teams');
+        renderTeams(res.board, prev !== 'teams');
+        schedule(4000);
       } else if (res.status === 'closed' || res.status === 'teams') {
         show('closed');
-        schedule(20000);
+        schedule(5000);   // team selection follows voting, so keep checking
       } else {
         show('waiting');
         schedule(4000);
@@ -243,6 +280,92 @@ try {
       state.dirty = false;
       setMsg('Thanks! Your votes are in. You can change them until voting closes.', 'ok');
       renderList();
+    });
+  };
+
+  /* ---------- team selection: pick one team, with first name and skill ---------- */
+  var tm = { board: null, pick: null, team: null, skill: null, dirty: false };
+  try { $('tName').value = localStorage.getItem('s48name') || ''; } catch (e) { }
+
+  function teamName(id) {
+    var ts = tm.board ? tm.board.teams : [];
+    for (var i = 0; i < ts.length; i++) { if (ts[i].id === id) { return '#' + ts[i].station + ' ' + ts[i].name; } }
+    return '';
+  }
+  function setTMsg(text, kind) { $('tMsg').textContent = text || ''; $('tMsg').className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  function renderTeams(board, first) {
+    tm.board = board;
+    var ph = board.phase, open = ph === 'choose' || ph === 'finalize';
+    $('tTitle').textContent = ph === 'explore' ? 'Explore the teams' : ph === 'set' ? 'Teams are set' : 'Pick the team you’d like to join';
+    $('tLead').textContent = ph === 'explore' ? 'Visit each numbered station and talk to the team. Don’t decide yet: picking opens here in a few minutes.'
+      : ph === 'set' ? 'Thanks! Head to your team’s station.'
+      : ph === 'finalize' ? 'Teams marked “needs people” are looking for members. You can still switch.'
+      : 'Tap a team, add your first name and what you bring. You can change it until teams are set.';
+    $('tForm').className = open ? '' : 'hidden';
+    loadPick();   // every update, so an organizer's move or removal shows up here
+    drawTeams();
+  }
+
+  function drawTeams() {
+    var b = tm.board, open = b.phase === 'choose' || b.phase === 'finalize', ul = $('tList');
+    ul.className = 'tlist' + (open ? ' pickable' : '');
+    ul.innerHTML = '';
+    b.teams.forEach(function (t) {
+      var li = document.createElement('li'), st = document.createElement('span'), nm = document.createElement('span');
+      li.className = tm.team === t.id ? 'mine' : '';
+      st.className = 'st'; st.textContent = t.station;
+      nm.className = 'name'; nm.textContent = t.name;
+      li.appendChild(st); li.appendChild(nm);
+      if (typeof t.count === 'number') {
+        var c = document.createElement('span');
+        c.className = 'tc' + (t.fit === 'under' && b.phase !== 'set' ? ' under' : '');
+        c.textContent = t.count + (b.phase !== 'set' && t.fit === 'under' ? ' · needs people' : b.phase !== 'set' && t.fit === 'over' ? ' · full' : '');
+        li.appendChild(c);
+      }
+      if (open) { li.onclick = function () { tm.team = t.id; tm.dirty = true; setTMsg(''); drawTeams(); }; }
+      ul.appendChild(li);
+    });
+    var skills = $('tSkills').children;
+    for (var i = 0; i < skills.length; i++) { skills[i].className = skills[i].getAttribute('data-skill') === tm.skill ? 'on' : ''; }
+    var mine = $('tMine'), saved = tm.pick && teamName(tm.pick.team);
+    mine.className = saved && !(open && tm.dirty) ? 'mypick' : 'mypick hidden';
+    mine.textContent = saved ? (b.phase === 'set' ? 'You’re on ' + saved + '. Head to station ' + saved.split(' ')[0].slice(1) + '.' : 'You picked ' + saved + '.')
+      + (tm.pick.moved ? ' (An organizer placed you on this team.)' : '') : '';
+    if (b.phase === 'set' && !saved) { mine.className = 'mypick'; mine.textContent = 'You didn’t pick a team. Find an organizer and they’ll add you.'; }
+    var sub = $('tSubmit');
+    sub.disabled = !tm.team || !tm.skill || !$('tName').value.trim() || (!tm.dirty && !!tm.pick);
+    sub.textContent = !tm.team ? 'Pick a team above' : (tm.pick && !tm.dirty ? 'Saved ✓' : (tm.pick ? 'Update: ' : 'Join ') + teamName(tm.team));
+    sub.className = tm.pick && !tm.dirty ? 'submit done' : 'submit';
+  }
+
+  function loadPick() {
+    S48.api('GET', '../api/pick.php', null, function (err, res) {
+      if (err) { return; }
+      tm.pick = res.pick;
+      if (!tm.dirty) {
+        tm.team = res.pick ? res.pick.team : null;
+        tm.skill = res.pick ? res.pick.skill : tm.skill;
+        if (res.pick && !$('tName').value) { $('tName').value = res.pick.name; }
+      }
+      if (tm.board) { drawTeams(); }
+    });
+  }
+
+  for (var si = 0; si < $('tSkills').children.length; si++) {
+    $('tSkills').children[si].onclick = function () { tm.skill = this.getAttribute('data-skill'); tm.dirty = true; setTMsg(''); drawTeams(); };
+  }
+  $('tName').oninput = function () { tm.dirty = true; drawTeams(); };
+  $('tSubmit').onclick = function () {
+    var name = $('tName').value.trim();
+    $('tSubmit').disabled = true;
+    setTMsg('Sending…');
+    try { localStorage.setItem('s48name', name); } catch (e) { }
+    S48.api('POST', '../api/pick.php', { team: tm.team, name: name, skill: tm.skill }, function (err, res) {
+      if (err) { setTMsg(err.message || 'Could not save. Try again.', 'err'); if (err.status === 409) { poll(); } drawTeams(); return; }
+      tm.pick = res.pick; tm.dirty = false;
+      setTMsg('Saved! You can switch until teams are set.', 'ok');
+      drawTeams();
     });
   };
 

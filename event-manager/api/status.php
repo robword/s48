@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../inc/bootstrap.php';
-require __DIR__ . '/../inc/showcase.php';
+require __DIR__ . '/../inc/teams.php';
 
 s48_api(static function () {
     $state = s48_state();
@@ -20,11 +20,16 @@ s48_api(static function () {
         $out['pitches'] = s48_public_pitches($state);
     }
     if ($state['status'] === 'teams') {
-        // For the "Form your team" slide: advancing ideas in pitch order, plus the size estimate.
-        $info = s48_showcase()['info'];
-        $adv = s48_advancing($state);
-        $out['teams'] = array_column($adv, 'name');
-        $out['team'] = s48_team_fit((int) $info['participants'], count($adv), (int) $info['team_min'], (int) $info['team_max']);
+        // For the "Form your team" slide and phones: teams by station, phase and countdown, live counts.
+        $board = s48_team_board($state, false);
+        if ($board['phase'] === 'explore') {
+            foreach ($board['teams'] as &$t) {
+                unset($t['count'], $t['skills'], $t['fit']);   // no counts while people are just exploring
+            }
+            unset($t);
+            unset($board['picked']);
+        }
+        $out['board'] = $board;
     }
     if (!empty($_GET['counts'])) {
         $c = s48_round_counts($state['round']);

@@ -141,7 +141,19 @@ The file does hold names, headshots and the Wi-Fi password, so share it accordin
    - The advancing list locks. **Stop team selection** unlocks it.
    - The slide deck jumps to **Form your team**, which lists the advancing ideas in pitch order (not by votes) with a line like "7 teams · 5–6 people per team".
    - The voting page keeps showing "Voting closed".
-4. Reopening voting needs team selection stopped first. **Reset** clears the advancing list.
+4. Team selection runs in phases. The operator moves between them with the buttons next to the countdown; **Back** is available too.
+   Phase lengths are set in Event info (default 5 / 5 / 5 min). The countdown holds at 0:00 and flashes until the operator moves on.
+   - **Explore:** the slide shows the teams at numbered stations (1…N in pitch order) and the countdown. Phones list the stations. No picking yet.
+   - **Choose:** the QR code returns on the slide. On their phone, each person picks one team, enters a first name and taps Build / Design / Business / Other.
+     The slide tiles show live counts with "needs people" / "full" against the ideal team size.
+   - **Finalize:** same as Choose, and people can still switch. Organizers rebalance in the console's **Teams** view.
+     It shows each team's count, skill mix and roster, with **Move…** to place someone on another team or remove their pick; the person's phone shows the change.
+   - **Teams are set:** picks lock. The slide shows the final teams with counts, and phones show "You're on #3 …".
+     Anyone without a pick is told to find an organizer.
+   - **Download rosters (CSV)** gives station, team, name, skill, and whether an organizer moved them.
+5. Reopening voting needs team selection stopped first. **Reset** clears the advancing list and the picks (they belong to the voting round).
+
+Picks are stored like ballots: one file per phone in `data/rounds/<round>/picks/`.
 
 ### Storage and concurrency
 

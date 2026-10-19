@@ -80,6 +80,28 @@ $csrf = s48_csrf_token();
   .stat.teamfit { border: 2px solid var(--s48-good); }
   .stat.teamfit.bad { border-color: var(--s48-bad); background: rgba(255, 90, 90, .14); }
   .stat.teamfit.bad .v { color: var(--s48-bad); }
+  /* Team selection: phase controls and the balance view */
+  .phasebox { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .phasebox .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; min-width: 4ch; }
+  .phasebox .clock.up { color: var(--s48-bad); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  .board-head { align-items: baseline; gap: 12px; }
+  .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .tm { background: var(--s48-bg); border-radius: 12px; padding: 12px; border: 2px solid var(--s48-good); }
+  .tm.under { border-color: var(--s48-bad); }
+  .tm.over { border-color: #e8a33d; }
+  .tm h3 { margin: 0 0 4px; font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
+  .tm h3 .st { font-family: var(--s48-font-display); color: var(--s48-accent-ink); }
+  .tm .cnt { font-size: 13px; color: var(--s48-muted); margin-bottom: 6px; }
+  .tm .cnt b { color: var(--s48-text); font-size: 16px; }
+  .tm.under .cnt b { color: var(--s48-bad); }
+  .tm.over .cnt b { color: #e8a33d; }
+  .tm ul { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  .tm li { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-top: 1px solid var(--s48-line); }
+  .tm li .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tm li .sk { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--s48-muted); }
+  .tm li select { font-size: 12px; padding: 2px 4px; max-width: 92px; }
+  .tm .skills { font-size: 12px; color: var(--s48-muted); margin-bottom: 4px; }
   td.adv { text-align: center; width: 90px; }
   td.adv input { width: 20px; height: 20px; accent-color: var(--s48-accent); cursor: pointer; }
   td.adv input:disabled { cursor: not-allowed; }
@@ -134,6 +156,7 @@ $csrf = s48_csrf_token();
   .info-grid .wide { grid-column: span 2; }
   .info-grid .range { display: flex; align-items: center; gap: 8px; color: var(--s48-text); }
   .info-grid .range input { width: 0; flex: 1; }
+  .info-grid .hint { font-size: 12px; color: var(--s48-muted); }
   @media (max-width: 600px) { .info-grid .wide { grid-column: auto; } }
   select, input[type=number] { font: inherit; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--s48-line); background: var(--s48-bg); color: var(--s48-text); }
   textarea { resize: vertical; }
@@ -205,6 +228,12 @@ $csrf = s48_csrf_token();
         <button class="big" id="btnClose">Close voting</button>
         <button class="big" id="btnReopen">Reopen</button>
         <button class="primary big" id="btnTeams">Start team selection</button>
+        <span id="phaseBox" class="phasebox" hidden>
+          <span class="pill teams" id="phaseName"></span>
+          <span class="clock" id="phaseClock"></span>
+          <button class="big" id="btnPhaseBack"></button>
+          <button class="primary big" id="btnPhaseNext"></button>
+        </span>
         <button class="big" id="btnTeamsStop">Stop team selection</button>
         <span class="spacer" style="flex:1"></span>
         <span class="muted" id="updated"></span>
@@ -216,6 +245,16 @@ $csrf = s48_csrf_token();
         <div class="stat"><div class="v" id="sSubmitted">0</div><div class="l">Submitted</div></div>
         <div class="stat"><div class="v" id="sPct">0%</div><div class="l">Of openers submitted</div><div class="meter"><div id="sMeter"></div></div></div>
         <div class="stat teamfit" id="teamCard" hidden><div class="v" id="sPerTeam">–</div><div class="l">Participants per team</div><div class="l" id="sTeamNote"></div></div>
+      </div>
+
+      <div id="boardBox" hidden>
+        <div class="row board-head">
+          <h2>Teams</h2>
+          <span class="muted" id="boardPicked"></span>
+          <span class="spacer" style="flex:1"></span>
+          <a href="../api/rosters.php" download>Download rosters (CSV)</a>
+        </div>
+        <div class="board" id="board"></div>
       </div>
 
       <h2>Live ranking</h2>
@@ -262,6 +301,7 @@ $csrf = s48_csrf_token();
         <label class="wide">Mentor hours (shown on mentor and schedule slides)<input type="text" id="i-mentor_hours" maxlength="80" placeholder="Mentors available 9 AM – 3 PM"></label>
         <label>Number of participants<input type="number" id="i-participants" min="0" max="1000" step="1" placeholder="e.g. 36"></label>
         <label>Ideal team size<span class="range"><input type="number" id="i-team_min" min="1" max="50" step="1" aria-label="Smallest team"> to <input type="number" id="i-team_max" min="1" max="50" step="1" aria-label="Largest team"></span></label>
+        <label>Team selection minutes<span class="range"><input type="number" id="i-phase_explore" min="1" max="60" step="1" aria-label="Explore minutes" title="Explore"> <input type="number" id="i-phase_choose" min="1" max="60" step="1" aria-label="Choose minutes" title="Choose"> <input type="number" id="i-phase_finalize" min="1" max="60" step="1" aria-label="Finalize minutes" title="Finalize"></span><span class="hint">Explore · Choose · Finalize</span></label>
         <label>Seconds per person<input type="number" id="i-seconds" min="3" max="15" step="1"></label>
         <label>Mentors shown
           <select id="i-mentor_day">
@@ -431,6 +471,7 @@ $csrf = s48_csrf_token();
     $('btnTeamsStop').style.display = st === 'teams' ? '' : 'none';
     $('btnTeams').disabled = !data.advance.length;
     renderTeamCard(st);
+    renderBoard(st);
     $('btnStart').disabled = data.pitches.length === 0;
     $('voteLink').href = data.vote_url;
 
@@ -479,6 +520,73 @@ $csrf = s48_csrf_token();
     $('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
     renderPitches();
   }
+
+  /* ---------- team selection phases and balance view ---------- */
+  var PHASES = ['explore', 'choose', 'finalize', 'set'];
+  var PHASE_LABEL = { explore: 'Explore', choose: 'Choose', finalize: 'Finalize', set: 'Teams are set' };
+  var NEXT_LABEL = { explore: 'Start choosing', choose: 'Start finalize', finalize: 'Teams are set' };
+  var SKILL = { build: 'Build', design: 'Design', business: 'Business', other: 'Other' };
+  var clockOffset = 0, boardKey = null;
+
+  function renderBoard(st) {
+    var b = data.board, on = st === 'teams' && b;
+    $('phaseBox').hidden = !on;
+    $('boardBox').hidden = !on;
+    if (!on) { boardKey = null; return; }
+    clockOffset = b.server_time * 1000 - Date.now();
+    var i = PHASES.indexOf(b.phase);
+    $('phaseName').textContent = PHASE_LABEL[b.phase];
+    $('btnPhaseNext').style.display = NEXT_LABEL[b.phase] ? '' : 'none';
+    $('btnPhaseNext').textContent = NEXT_LABEL[b.phase] || '';
+    $('btnPhaseBack').style.display = i > 0 ? '' : 'none';
+    $('btnPhaseBack').textContent = i > 0 ? 'Back to ' + PHASE_LABEL[PHASES[i - 1]] : '';
+    tickPhase();
+    var f = b.fit;
+    $('boardPicked').textContent = b.picked + (f.participants ? ' of ' + f.participants : '') + ' picked a team · ideal ' + f.min + '–' + f.max + ' per team';
+    // Rebuild the cards only when something changed, so an open move menu isn't reset every poll.
+    var key = JSON.stringify(b.teams);
+    if (key === boardKey || (document.activeElement && document.activeElement.tagName === 'SELECT' && $('board').contains(document.activeElement))) { return; }
+    boardKey = key;
+    var box = $('board');
+    box.innerHTML = '';
+    b.teams.forEach(function (t) {
+      var card = el('div', 'tm ' + t.fit), h = el('h3');
+      h.appendChild(el('span', 'st', '#' + t.station)); h.appendChild(el('span', '', t.name));
+      card.appendChild(h);
+      var cnt = el('div', 'cnt'); cnt.appendChild(el('b', '', t.count)); cnt.appendChild(document.createTextNode(t.fit === 'under' ? ' · needs people' : t.fit === 'over' ? ' · over ' + f.max : ' · good'));
+      card.appendChild(cnt);
+      card.appendChild(el('div', 'skills', Object.keys(SKILL).filter(function (k) { return t.skills[k]; }).map(function (k) { return SKILL[k] + ' ' + t.skills[k]; }).join(' · ') || 'No picks yet'));
+      var ul = el('ul');
+      t.roster.forEach(function (r) {
+        var li = el('li');
+        li.appendChild(el('span', 'who', r.name + (r.moved ? ' ↔' : '')));
+        li.appendChild(el('span', 'sk', SKILL[r.skill] || r.skill));
+        var sel = el('select'); sel.title = 'Move ' + r.name;
+        var o0 = el('option', '', 'Move…'); o0.value = '#'; sel.appendChild(o0);
+        b.teams.forEach(function (o) { if (o.id !== t.id) { var op = el('option', '', '→ #' + o.station + ' ' + o.name); op.value = o.id; sel.appendChild(op); } });
+        var rm = el('option', '', 'Remove pick'); rm.value = ''; sel.appendChild(rm);
+        sel.onchange = function () {
+          if (sel.value === '#') { return; }
+          if (sel.value === '' && !confirm('Remove ' + r.name + '\'s pick?')) { sel.value = '#'; return; }
+          act('pick_move', { key: r.key, team: sel.value });
+          sel.blur();
+        };
+        li.appendChild(sel);
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+      box.appendChild(card);
+    });
+  }
+  // Phase countdown in the console, matching the slide: holds at 0:00 and flashes.
+  function tickPhase() {
+    var b = data && data.board, c = $('phaseClock');
+    if (!b || data.status !== 'teams' || !b.phase_seconds) { c.textContent = ''; return; }
+    var left = Math.max(0, Math.ceil(b.phase_at + b.phase_seconds - (Date.now() + clockOffset) / 1000));
+    c.textContent = Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2);
+    c.className = 'clock' + (left === 0 ? ' up' : '');
+  }
+  setInterval(tickPhase, 500);
 
   function renderTeamCard(st) {
     var card = $('teamCard'), t = data.team;
@@ -532,7 +640,15 @@ $csrf = s48_csrf_token();
     }
     if (confirm(msg)) { act('teams_start'); }
   };
-  $('btnTeamsStop').onclick = function () { act('teams_stop'); };
+  $('btnTeamsStop').onclick = function () {
+    if (confirm('Stop team selection? The slide goes back to the usual bullets and phones stop showing teams. Picks are kept if you start again.')) { act('teams_stop'); }
+  };
+  $('btnPhaseNext').onclick = function () {
+    var i = PHASES.indexOf(data.board.phase), next = PHASES[i + 1];
+    if (next === 'set' && !confirm('Teams are set? Phones stop accepting changes and the slide shows the final teams.')) { return; }
+    act('teams_phase', { phase: next });
+  };
+  $('btnPhaseBack').onclick = function () { act('teams_phase', { phase: PHASES[PHASES.indexOf(data.board.phase) - 1] }); };
   $('btnReset').onclick = function () {
     act('reset', { confirm: $('resetConfirm').value, keep_pitches: $('keepPitches').checked });
     $('resetConfirm').value = '';
@@ -660,7 +776,7 @@ $csrf = s48_csrf_token();
   $('infoForm').onsubmit = function (e) {
     e.preventDefault();
     var f = {};
-    ['header', 'wifi_name', 'wifi_pass', 'mentor_hours', 'participants', 'team_min', 'team_max', 'seconds', 'mentor_day', 'announce_title', 'announce_body'].forEach(function (k) { f[k] = $('i-' + k).value; });
+    ['header', 'wifi_name', 'wifi_pass', 'mentor_hours', 'participants', 'team_min', 'team_max', 'phase_explore', 'phase_choose', 'phase_finalize', 'seconds', 'mentor_day', 'announce_title', 'announce_body'].forEach(function (k) { f[k] = $('i-' + k).value; });
     api({ action: 'info', fields: f }, function (err) { $('infoSaved').textContent = err ? err.message : 'Saved ' + new Date().toLocaleTimeString(); });
   };
 
