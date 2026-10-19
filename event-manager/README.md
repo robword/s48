@@ -116,10 +116,17 @@ The file does hold names, headshots and the Wi-Fi password, so share it accordin
 
 ## Voting flow
 
+The console's step bar runs the whole night: **Pitches → Vote → Results → Explore → Choose → Finalize → Teams are set**.
+**Next ▶** moves on, asking first before starting voting, closing voting and setting teams. **◀ Back** steps back safely:
+- **Vote → Pitches:** only while nobody has voted.
+- **Results → Vote:** reopens voting; votes are kept.
+- **Explore → Results:** unlocks the advancing ideas; picks are kept.
+- **Reset**, under the ranking, starts a new round.
+
 1. Operator opens `admin/` and logs in.
 2. During opening pitches, type each pitch name and press Enter (or paste a list, one per line).
    Click a name to rename it, and use the arrows to reorder.
-3. Click **Start voting**. The QR code appears on the slides.
+3. Click **Start voting ▶**. The QR code appears on the slides.
 4. Participants scan, tap **+**/**−** to spend up to 3 votes (all on one idea or spread out), and submit.
    They can change their votes until voting closes.
 5. The operator console refreshes every 3 s and shows:
@@ -128,17 +135,17 @@ The file does hold names, headshots and the Wi-Fi password, so share it accordin
    - submitted
    - % of openers who submitted
    - the live ranking (ties share a rank, shown as T2; ideas with no votes show –)
-6. Click **Close voting**. **Reopen voting** is available. **Reset** starts a fresh round. Old round files stay in `data/rounds/` and are never deleted.
+6. Click **Close voting ▶** to reach Results (◀ Back reopens voting). **Reset** starts a fresh round. Old round files stay in `data/rounds/` and are never deleted.
 
 ### Team selection
 
 1. In **Event info**, set the **Number of participants** and the **Ideal team size** (default 4 to 6).
-2. After **Close voting**, tick the ideas to advance in the **Advance to Team Selection** column of the live ranking.
+2. At **Results** (after closing voting), tick the ideas to advance in the **Advance to Team Selection** column of the live ranking.
    - The **Participants per team** card shows participants ÷ advancing ideas.
    - It stays red until every team can fall inside the ideal range, and it says how many ideas to pick (36 people at 4–6 → pick 6–9).
-3. Click **Start team selection**.
+3. Click **Start team selection ▶**.
    - If the sizes are out of range, it asks before going ahead.
-   - The advancing list locks. **Change advancing ideas** (in the Teams panel) leaves team selection and unlocks it; picks are kept.
+   - The advancing list locks. **◀ Back** from Explore returns to Results and unlocks it; picks are kept.
    - The slide deck jumps to **Form your team**, which lists the advancing ideas in pitch order (not by votes) with a line like "7 teams · 5–6 people per team".
    - The voting page keeps showing "Voting closed".
 4. Team selection runs in phases. The step bar shows where you are; move on with the Next button beside the countdown, or ◀ Back.
@@ -151,7 +158,7 @@ The file does hold names, headshots and the Wi-Fi password, so share it accordin
    - **Teams are set:** picks lock. The slide shows the final teams with counts, and phones show "You're on #3 …".
      Anyone without a pick is told to find an organizer.
    - **Download rosters (CSV)** gives station, team, name, skill, and whether an organizer moved them.
-5. Reopening voting needs team selection left first (Change advancing ideas). **Reset** clears the advancing list and the picks (they belong to the voting round).
+5. Reopening voting means stepping back through Results first. **Reset** clears the advancing list and the picks (they belong to the voting round).
 
 Picks are stored like ballots: one file per phone in `data/rounds/<round>/picks/`.
 

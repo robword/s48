@@ -86,10 +86,9 @@ $csrf = s48_csrf_token();
   .steps li + li { border-left: 1px solid var(--s48-line); }
   .steps li.done { color: var(--s48-text); opacity: .6; }
   .steps li.on { background: var(--s48-accent-2); color: #042; }
-  button.ghost { background: transparent; border: 1px solid var(--s48-line); color: var(--s48-muted); padding: 6px 12px; font-size: 13px; }
-  button.ghost:hover { color: var(--s48-text); border-color: var(--s48-muted); }
   .phasebox { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .phasebox .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; min-width: 4ch; }
+  .phasebox .clock:empty { display: none; }
   .phasebox .clock.up { color: var(--s48-bad); animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
   .board-head { align-items: baseline; gap: 12px; }
@@ -241,13 +240,9 @@ $csrf = s48_csrf_token();
 
     <section class="results">
       <div class="controls">
-        <button class="primary big" id="btnStart">Start voting</button>
-        <button class="big" id="btnClose">Close voting</button>
-        <button class="big" id="btnReopen">Reopen voting</button>
-        <button class="primary big" id="btnTeams">Start team selection</button>
-        <span id="phaseBox" class="phasebox" hidden>
-          <ol class="steps" id="phaseSteps" aria-label="Team selection phases">
-            <li data-ph="explore">Explore</li><li data-ph="choose">Choose</li><li data-ph="finalize">Finalize</li><li data-ph="set">Teams are set</li>
+        <span id="phaseBox" class="phasebox">
+          <ol class="steps" id="phaseSteps" aria-label="Opening night steps">
+            <li>Pitches</li><li>Vote</li><li>Results</li><li>Explore</li><li>Choose</li><li>Finalize</li><li>Teams are set</li>
           </ol>
           <span class="clock" id="phaseClock"></span>
           <button class="big" id="btnPhaseBack">◀ Back</button>
@@ -271,7 +266,6 @@ $csrf = s48_csrf_token();
           <span class="muted" id="boardPicked"></span>
           <span class="spacer" style="flex:1"></span>
           <a href="../api/rosters.php" download id="rosterLink">Download rosters (CSV)</a>
-          <button class="ghost" id="btnTeamsStop" title="Leave team selection to change which ideas advance">Change advancing ideas</button>
         </div>
         <div class="board" id="board"></div>
       </div>
@@ -487,14 +481,9 @@ $csrf = s48_csrf_token();
   function render() {
     var st = data.status, r = data.results;
     document.body.setAttribute('data-status', st);
-    $('btnStart').style.display = st === 'setup' ? '' : 'none';
-    $('btnClose').style.display = st === 'open' ? '' : 'none';
-    $('btnReopen').style.display = st === 'closed' ? '' : 'none';
-    $('btnTeams').style.display = st === 'closed' ? '' : 'none';
-    $('btnTeams').disabled = !data.advance.length;
     renderTeamCard(st);
+    renderSteps(st);
     renderBoard(st);
-    $('btnStart').disabled = data.pitches.length === 0;
     $('voteLink').href = data.vote_url;
 
     $('sOpened').textContent = r.opened;
@@ -544,25 +533,37 @@ $csrf = s48_csrf_token();
   }
 
   /* ---------- team selection phases and balance view ---------- */
-  var PHASES = ['explore', 'choose', 'finalize', 'set'];
-  var PHASE_LABEL = { explore: 'Explore', choose: 'Choose', finalize: 'Finalize', set: 'Teams are set' };
-  var NEXT_LABEL = { explore: 'Start choosing', choose: 'Start finalize', finalize: 'Teams are set' };
+  // One step bar for the night: Pitches > Vote > Results > Explore > Choose > Finalize > Teams are set.
+  var STEPS = ['pitches', 'vote', 'results', 'explore', 'choose', 'finalize', 'set'];
+  var STEP_LABEL = { pitches: 'Pitches', vote: 'Vote', results: 'Results', explore: 'Explore', choose: 'Choose', finalize: 'Finalize', set: 'Teams are set' };
+  var NEXT_LABEL = { pitches: 'Start voting', vote: 'Close voting', results: 'Start team selection', explore: 'Start choosing', choose: 'Start finalize', finalize: 'Teams are set' };
   var SKILL = { build: 'Build', design: 'Design', business: 'Business', other: 'Other' };
   var clockOffset = 0, boardKey = null;
 
+  function currentStep(st) {
+    return st === 'setup' ? 'pitches' : st === 'open' ? 'vote' : st === 'closed' ? 'results' : (data.board ? data.board.phase : 'explore');
+  }
+
+  function renderSteps(st) {
+    var step = currentStep(st), i = STEPS.indexOf(step), back = $('btnPhaseBack'), next = $('btnPhaseNext');
+    document.querySelectorAll('#phaseSteps li').forEach(function (li, k) { li.className = k < i ? 'done' : k === i ? 'on' : ''; });
+    next.style.display = NEXT_LABEL[step] ? '' : 'none';
+    next.textContent = (NEXT_LABEL[step] || '') + ' ▶';
+    next.disabled = (step === 'pitches' && !data.pitches.length) || (step === 'results' && !data.advance.length);
+    next.title = step === 'pitches' && !data.pitches.length ? 'Add pitches first' : step === 'results' && !data.advance.length ? 'Tick at least one idea to advance' : '';
+    back.style.display = i > 0 ? '' : 'none';
+    // Back from Vote only while nobody has voted; Reset (below the ranking) starts a new round.
+    back.disabled = step === 'vote' && data.results.submitted > 0;
+    back.title = back.disabled ? 'People have voted. Close voting, or use Reset to start a new round.'
+      : i > 0 ? 'Back to ' + STEP_LABEL[STEPS[i - 1]] + (step === 'results' ? ' (reopens voting; votes are kept)' : step === 'explore' ? ' (unlocks the advancing ideas; picks are kept)' : '') : '';
+    if (data.board) { clockOffset = data.board.server_time * 1000 - Date.now(); }
+    tickPhase();
+  }
+
   function renderBoard(st) {
     var b = data.board, on = st === 'teams' && b;
-    $('phaseBox').hidden = !on;
     $('boardBox').hidden = !on;
     if (!on) { boardKey = null; return; }
-    clockOffset = b.server_time * 1000 - Date.now();
-    var i = PHASES.indexOf(b.phase);
-    document.querySelectorAll('#phaseSteps li').forEach(function (li, k) { li.className = k < i ? 'done' : k === i ? 'on' : ''; });
-    $('btnPhaseNext').style.display = NEXT_LABEL[b.phase] ? '' : 'none';
-    $('btnPhaseNext').textContent = (NEXT_LABEL[b.phase] || '') + ' ▶';
-    $('btnPhaseBack').style.display = i > 0 ? '' : 'none';
-    $('btnPhaseBack').title = i > 0 ? 'Back to ' + PHASE_LABEL[PHASES[i - 1]] : '';
-    tickPhase();
     var f = b.fit, exploring = b.phase === 'explore';
     // While exploring nobody can pick yet: no counts, tags or rosters, just the stations.
     $('rosterLink').hidden = exploring;
@@ -657,29 +658,33 @@ $csrf = s48_csrf_token();
     $('bulk').value = '';
     $('bulkBox').open = false;
   };
-  $('btnStart').onclick = function () {
-    if (confirm('Start voting with ' + data.pitches.length + ' pitches? The QR code will appear on the slides.')) { act('start'); }
-  };
-  $('btnClose').onclick = function () { if (confirm('Close voting? Phones will stop accepting votes.')) { act('close'); } };
-  $('btnReopen').onclick = function () { act('reopen'); };
-  $('btnTeams').onclick = function () {
-    var t = data.team, n = data.advance.length;
-    var msg = 'Start team selection with ' + n + ' idea' + (n === 1 ? '' : 's') + '? Their names appear on the "Form your team" slide, and the list is locked until you stop team selection.';
-    if (!t.ok) {
-      msg = (t.participants ? 'Team sizes are outside ' + t.min + '–' + t.max + (t.per_team ? ' (about ' + t.per_team + ' per team)' : '') + '.'
-        : 'The number of participants isn\'t set, so team sizes can\'t be checked.') + '\n\nStart anyway?\n\n' + msg;
-    }
-    if (confirm(msg)) { act('teams_start'); }
-  };
-  $('btnTeamsStop').onclick = function () {
-    if (confirm('Change the advancing ideas?\n\nThis leaves team selection: the slide goes back to its usual bullets, phones show "Voting closed", and the Advance checkboxes unlock. Picks are kept, and Start team selection begins again at Explore.')) { act('teams_stop'); }
-  };
   $('btnPhaseNext').onclick = function () {
-    var i = PHASES.indexOf(data.board.phase), next = PHASES[i + 1];
-    if (next === 'set' && !confirm('Teams are set? Phones stop accepting changes and the slide shows the final teams.')) { return; }
-    act('teams_phase', { phase: next });
+    var step = currentStep(data.status);
+    if (step === 'pitches') {
+      if (confirm('Start voting with ' + data.pitches.length + ' pitches? The QR code will appear on the slides.')) { act('start'); }
+    } else if (step === 'vote') {
+      if (confirm('Close voting? Phones will stop accepting votes.')) { act('close'); }
+    } else if (step === 'results') {
+      var t = data.team, n = data.advance.length;
+      var msg = 'Start team selection with ' + n + ' idea' + (n === 1 ? '' : 's') + '? Their names appear on the "Form your team" slide, and the list is locked until you go back to Results.';
+      if (!t.ok) {
+        msg = (t.participants ? 'Team sizes are outside ' + t.min + '–' + t.max + (t.per_team ? ' (about ' + t.per_team + ' per team)' : '') + '.'
+          : 'The number of participants isn\'t set, so team sizes can\'t be checked.') + '\n\nStart anyway?\n\n' + msg;
+      }
+      if (confirm(msg)) { act('teams_start'); }
+    } else {
+      var nxt = STEPS[STEPS.indexOf(step) + 1];
+      if (nxt === 'set' && !confirm('Teams are set? Phones stop accepting changes and the slide shows the final teams.')) { return; }
+      act('teams_phase', { phase: nxt });
+    }
   };
-  $('btnPhaseBack').onclick = function () { act('teams_phase', { phase: PHASES[PHASES.indexOf(data.board.phase) - 1] }); };
+  $('btnPhaseBack').onclick = function () {
+    var step = currentStep(data.status);
+    if (step === 'vote') { act('unstart'); }
+    else if (step === 'results') { act('reopen'); }
+    else if (step === 'explore') { act('teams_stop'); }
+    else { act('teams_phase', { phase: STEPS[STEPS.indexOf(step) - 1] }); }
+  };
   $('btnReset').onclick = function () {
     act('reset', { confirm: $('resetConfirm').value, keep_pitches: $('keepPitches').checked });
     $('resetConfirm').value = '';

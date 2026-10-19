@@ -105,6 +105,18 @@ s48_api(static function () {
                 $s['closed_at'] = null;
                 break;
 
+            case 'unstart':
+                // Back from Vote to Pitches: only while nobody has voted (counted now, not from the tally cache).
+                if ($s['status'] !== 'open') {
+                    throw new S48Error('Voting is not open', 409);
+                }
+                if (glob(s48_round_dir($s['round'], 'ballots') . '/*.json') ?: []) {
+                    throw new S48Error('People have already voted. Close voting, or use Reset to start a new round.', 409);
+                }
+                $s['status'] = 'setup';
+                $s['opened_at'] = null;
+                break;
+
             case 'close':
                 if ($s['status'] !== 'open') {
                     throw new S48Error('Voting is not open', 409);
