@@ -34,7 +34,7 @@ License, Ubuntu under the Ubuntu Font Licence), so nothing loads from a CDN on v
 
 ## Pitch timer
 
-Open `timer/`. Presets: **1** Opening Pitch 1:00 (tones at 0:20, 0:10), **2** Pitch 5:00 (1:00, 0:20),
+Open `timer/`. Presets: **1** Opening Pitch 1:00 (tones at 0:20, 0:10), **2** Final Pitch 5:00 (1:00, 0:20),
 **3** Q&A 5:00 (1:00, 0:30). Presets can't be switched while the timer runs; pause first.
 Any other length can be opened by link, e.g. `timer/?d=180&w=60,30&label=Demo` (seconds).
 The gear button shows or hides the options row: sound on/off, volume, end sound, test sounds, fullscreen and hide. Each laptop remembers whether the row is open.
