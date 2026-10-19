@@ -111,9 +111,10 @@ function s48_new_id(int $bytes = 6): string
 function s48_default_state(): array
 {
     return [
-        'status' => 'setup', // setup | open | closed
+        'status' => 'setup', // setup | open | closed | teams (team selection, after voting closed)
         'round' => s48_new_id(8),
         'pitches' => [],     // [{id, name}] in pitch order
+        'advance' => [],     // ids of the ideas advancing to team selection
         'opened_at' => null,
         'closed_at' => null,
         'updated_at' => time(),
@@ -170,6 +171,31 @@ function s48_public_pitches(array $state): array
         $out[] = ['id' => $p['id'], 'name' => $p['name'], 'n' => $i + 1];
     }
     return $out;
+}
+
+/** Ideas advancing to team selection, in pitch order (not by votes). */
+function s48_advancing(array $state): array
+{
+    $ids = array_flip($state['advance'] ?? []);
+    return array_values(array_filter(s48_public_pitches($state), static function ($p) use ($ids) {
+        return isset($ids[$p['id']]);
+    }));
+}
+
+/** Ideal-team-size check: can P participants split into n teams all within [min, max]? */
+function s48_team_fit(int $participants, int $n, int $min, int $max): array
+{
+    return [
+        'participants' => $participants,
+        'teams' => $n,
+        'per_team' => $n > 0 && $participants > 0 ? round($participants / $n, 1) : null,
+        'ok' => $n > 0 && $participants > 0 && $n * $min <= $participants && $participants <= $n * $max,
+        // Number of advancing ideas that would fit, e.g. 36 people at 4-6 -> 6..8.
+        'pick_min' => $participants > 0 ? (int) ceil($participants / $max) : null,
+        'pick_max' => $participants > 0 ? (int) floor($participants / $min) : null,
+        'min' => $min,
+        'max' => $max,
+    ];
 }
 
 function s48_clean_name(string $name): string

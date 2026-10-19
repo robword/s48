@@ -130,6 +130,19 @@ The file does hold names, headshots and the Wi-Fi password, so share it accordin
    - the live ranking (ties share a rank, shown as T2; ideas with no votes show –)
 6. Click **Close voting**. **Reopen** is available. **Reset** starts a fresh round. Old round files stay in `data/rounds/` and are never deleted.
 
+### Team selection
+
+1. In **Event info**, set the **Number of participants** and the **Ideal team size** (default 4 to 6).
+2. After **Close voting**, tick the ideas to advance in the **Advance to Team Selection** column of the live ranking.
+   - The **Participants per team** card shows participants ÷ advancing ideas.
+   - It stays red until every team can fall inside the ideal range, and it says how many ideas to pick (36 people at 4–6 → pick 6–9).
+3. Click **Start team selection**.
+   - If the sizes are out of range, it asks before going ahead.
+   - The advancing list locks. **Stop team selection** unlocks it.
+   - The slide deck jumps to **Form your team**, which lists the advancing ideas in pitch order (not by votes) with a line like "7 teams · 5–6 people per team".
+   - The voting page keeps showing "Voting closed".
+4. Reopening voting needs team selection stopped first. **Reset** clears the advancing list.
+
 ### Storage and concurrency
 
 - `data/state.json` holds the pitch list and status. Only the operator changes it, under an exclusive `flock`, with an atomic write (temp file then rename).

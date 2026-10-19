@@ -45,6 +45,7 @@ $csrf = s48_csrf_token();
   .pill { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; background: var(--s48-surface-2); }
   .pill.open { background: var(--s48-good); color: #062; }
   .pill.closed { background: var(--s48-bad); color: #400; }
+  .pill.teams { background: var(--s48-accent-2); color: #042; }
   main { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 20px; padding: 20px; }
   @media (max-width: 860px) {
     main { grid-template-columns: 1fr; }
@@ -70,11 +71,19 @@ $csrf = s48_csrf_token();
   ol.pitches li:not(:hover) button:not(.danger) { opacity: .45; }
   ol.pitches input { padding: 4px 6px; }
   .empty td { color: var(--s48-muted); text-align: center; padding: 28px 6px; border-bottom: 0; }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
   @media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
   .stat { background: var(--s48-bg); border-radius: 12px; padding: 14px; }
   .stat .v { font-family: var(--s48-font-display); font-size: 38px; font-weight: 700; line-height: 1; }
   .stat .l { color: var(--s48-muted); font-size: 13px; margin-top: 6px; }
+  /* Participants per team: red until the advancing count gives teams inside the ideal range. */
+  .stat.teamfit { border: 2px solid var(--s48-good); }
+  .stat.teamfit.bad { border-color: var(--s48-bad); background: rgba(255, 90, 90, .14); }
+  .stat.teamfit.bad .v { color: var(--s48-bad); }
+  td.adv { text-align: center; width: 90px; }
+  td.adv input { width: 20px; height: 20px; accent-color: var(--s48-accent); cursor: pointer; }
+  td.adv input:disabled { cursor: not-allowed; }
+  tr.advancing td:not(.bar) { font-weight: 700; }
   .meter { height: 8px; background: var(--s48-surface-2); border-radius: 4px; margin-top: 8px; overflow: hidden; }
   .meter div { height: 100%; background: var(--s48-good); width: 0; transition: width .4s; }
   table { width: 100%; border-collapse: collapse; }
@@ -123,6 +132,8 @@ $csrf = s48_csrf_token();
   @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
   .info-grid label, .modal label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--s48-muted); }
   .info-grid .wide { grid-column: span 2; }
+  .info-grid .range { display: flex; align-items: center; gap: 8px; color: var(--s48-text); }
+  .info-grid .range input { width: 0; flex: 1; }
   @media (max-width: 600px) { .info-grid .wide { grid-column: auto; } }
   select, input[type=number] { font: inherit; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--s48-line); background: var(--s48-bg); color: var(--s48-text); }
   textarea { resize: vertical; }
@@ -193,6 +204,8 @@ $csrf = s48_csrf_token();
         <button class="primary big" id="btnStart">Start voting</button>
         <button class="big" id="btnClose">Close voting</button>
         <button class="big" id="btnReopen">Reopen</button>
+        <button class="primary big" id="btnTeams">Start team selection</button>
+        <button class="big" id="btnTeamsStop">Stop team selection</button>
         <span class="spacer" style="flex:1"></span>
         <span class="muted" id="updated"></span>
       </div>
@@ -202,11 +215,12 @@ $csrf = s48_csrf_token();
         <div class="stat"><div class="v" id="sPending">0</div><div class="l">Opened, not submitted</div></div>
         <div class="stat"><div class="v" id="sSubmitted">0</div><div class="l">Submitted</div></div>
         <div class="stat"><div class="v" id="sPct">0%</div><div class="l">Of openers submitted</div><div class="meter"><div id="sMeter"></div></div></div>
+        <div class="stat teamfit" id="teamCard" hidden><div class="v" id="sPerTeam">–</div><div class="l">Participants per team</div><div class="l" id="sTeamNote"></div></div>
       </div>
 
       <h2>Live ranking</h2>
       <table>
-        <thead id="rankHead"><tr><th>#</th><th>Idea</th><th></th><th style="text-align:right">Votes</th><th style="text-align:right">Voters</th></tr></thead>
+        <thead id="rankHead"><tr><th>#</th><th>Idea</th><th></th><th style="text-align:right">Votes</th><th style="text-align:right">Voters</th><th class="advCol" style="text-align:center">Advance to Team Selection</th></tr></thead>
         <tbody id="ranking"></tbody>
       </table>
 
@@ -246,6 +260,8 @@ $csrf = s48_csrf_token();
         <label>Wi-Fi network<input type="text" id="i-wifi_name" maxlength="64"></label>
         <label>Wi-Fi password<input type="text" id="i-wifi_pass" maxlength="64"></label>
         <label class="wide">Mentor hours (shown on mentor and schedule slides)<input type="text" id="i-mentor_hours" maxlength="80" placeholder="Mentors available 9 AM – 3 PM"></label>
+        <label>Number of participants<input type="number" id="i-participants" min="0" max="1000" step="1" placeholder="e.g. 36"></label>
+        <label>Ideal team size<span class="range"><input type="number" id="i-team_min" min="1" max="50" step="1" aria-label="Smallest team"> to <input type="number" id="i-team_max" min="1" max="50" step="1" aria-label="Largest team"></span></label>
         <label>Seconds per person<input type="number" id="i-seconds" min="3" max="15" step="1"></label>
         <label>Mentors shown
           <select id="i-mentor_day">
@@ -406,11 +422,15 @@ $csrf = s48_csrf_token();
   function render() {
     var st = data.status, r = data.results;
     document.body.setAttribute('data-status', st);
-    $('statusPill').textContent = st === 'setup' ? 'Not started' : st;
+    $('statusPill').textContent = st === 'setup' ? 'Not started' : st === 'teams' ? 'Team selection' : st;
     $('statusPill').className = 'pill ' + st;
     $('btnStart').style.display = st === 'setup' ? '' : 'none';
     $('btnClose').style.display = st === 'open' ? '' : 'none';
     $('btnReopen').style.display = st === 'closed' ? '' : 'none';
+    $('btnTeams').style.display = st === 'closed' ? '' : 'none';
+    $('btnTeamsStop').style.display = st === 'teams' ? '' : 'none';
+    $('btnTeams').disabled = !data.advance.length;
+    renderTeamCard(st);
     $('btnStart').disabled = data.pitches.length === 0;
     $('voteLink').href = data.vote_url;
 
@@ -426,14 +446,17 @@ $csrf = s48_csrf_token();
     $('rankHead').style.display = st === 'setup' ? 'none' : '';
     if (st === 'setup') {
       var er = el('tr', 'empty'), ec = el('td', '', 'Ranking appears once voting starts.');
-      ec.colSpan = 5;
+      ec.colSpan = 6;
       er.appendChild(ec);
       tb.appendChild(er);
     }
     var perRank = {};
     r.ranking.forEach(function (x) { perRank[x.rank] = (perRank[x.rank] || 0) + 1; });
+    var showAdv = st === 'closed' || st === 'teams', adv = {};
+    data.advance.forEach(function (id) { adv[id] = true; });
+    document.querySelectorAll('.advCol').forEach(function (c) { c.style.display = showAdv ? '' : 'none'; });
     if (st !== 'setup') r.ranking.forEach(function (x) {
-      var tr = el('tr');
+      var tr = el('tr', adv[x.id] ? 'advancing' : '');
       // Ties show as T2; ideas with no votes aren't ranked.
       tr.appendChild(el('td', 'rk', x.votes === 0 ? '–' : (perRank[x.rank] > 1 ? 'T' : '') + x.rank));
       tr.appendChild(el('td', '', x.n + '. ' + x.name));
@@ -443,10 +466,34 @@ $csrf = s48_csrf_token();
       tr.appendChild(bar);
       tr.appendChild(el('td', 'vt', x.votes));
       tr.appendChild(el('td', 'vr', x.voters));
+      if (showAdv) {
+        // Ticked while voting is closed; locked once team selection has started.
+        var td = el('td', 'adv'), cb = el('input');
+        cb.type = 'checkbox'; cb.checked = !!adv[x.id]; cb.disabled = st !== 'closed';
+        cb.title = st === 'teams' ? 'Stop team selection to change' : 'Advance "' + x.name + '" to team selection';
+        cb.onchange = function () { act('advance', { id: x.id, on: cb.checked }); };
+        td.appendChild(cb); tr.appendChild(td);
+      }
       tb.appendChild(tr);
     });
     $('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
     renderPitches();
+  }
+
+  function renderTeamCard(st) {
+    var card = $('teamCard'), t = data.team;
+    card.hidden = !(st === 'closed' || st === 'teams');
+    if (card.hidden) { return; }
+    card.className = 'stat teamfit' + (t.ok ? '' : ' bad');
+    $('sPerTeam').textContent = t.per_team === null ? '–' : String(t.per_team);
+    var note;
+    if (!t.participants) { note = 'Set the number of participants in Event info'; }
+    else {
+      note = t.participants + ' participants · ' + t.teams + ' advancing';
+      note += t.pick_min <= t.pick_max ? ' · pick ' + (t.pick_min === t.pick_max ? t.pick_min : t.pick_min + '–' + t.pick_max) + ' for teams of ' + t.min + '–' + t.max
+        : ' · no count gives teams of ' + t.min + '–' + t.max;
+    }
+    $('sTeamNote').textContent = note;
   }
 
   function poll() {
@@ -476,6 +523,16 @@ $csrf = s48_csrf_token();
   };
   $('btnClose').onclick = function () { if (confirm('Close voting? Phones will stop accepting votes.')) { act('close'); } };
   $('btnReopen').onclick = function () { act('reopen'); };
+  $('btnTeams').onclick = function () {
+    var t = data.team, n = data.advance.length;
+    var msg = 'Start team selection with ' + n + ' idea' + (n === 1 ? '' : 's') + '? Their names appear on the "Form your team" slide, and the list is locked until you stop team selection.';
+    if (!t.ok) {
+      msg = (t.participants ? 'Team sizes are outside ' + t.min + '–' + t.max + (t.per_team ? ' (about ' + t.per_team + ' per team)' : '') + '.'
+        : 'The number of participants isn\'t set, so team sizes can\'t be checked.') + '\n\nStart anyway?\n\n' + msg;
+    }
+    if (confirm(msg)) { act('teams_start'); }
+  };
+  $('btnTeamsStop').onclick = function () { act('teams_stop'); };
   $('btnReset').onclick = function () {
     act('reset', { confirm: $('resetConfirm').value, keep_pitches: $('keepPitches').checked });
     $('resetConfirm').value = '';
@@ -603,7 +660,7 @@ $csrf = s48_csrf_token();
   $('infoForm').onsubmit = function (e) {
     e.preventDefault();
     var f = {};
-    ['header', 'wifi_name', 'wifi_pass', 'mentor_hours', 'seconds', 'mentor_day', 'announce_title', 'announce_body'].forEach(function (k) { f[k] = $('i-' + k).value; });
+    ['header', 'wifi_name', 'wifi_pass', 'mentor_hours', 'participants', 'team_min', 'team_max', 'seconds', 'mentor_day', 'announce_title', 'announce_body'].forEach(function (k) { f[k] = $('i-' + k).value; });
     api({ action: 'info', fields: f }, function (err) { $('infoSaved').textContent = err ? err.message : 'Saved ' + new Date().toLocaleTimeString(); });
   };
 

@@ -26,7 +26,7 @@ s48_api(static function () {
         throw new S48Error('Bad request', 400);
     }
     if ($state['status'] !== 'open') {
-        throw new S48Error($state['status'] === 'closed' ? 'Voting is closed.' : 'Voting has not started yet.', 409);
+        throw new S48Error($state['status'] !== 'setup' ? 'Voting is closed.' : 'Voting has not started yet.', 409);
     }
 
     $body = s48_json_body(8192);

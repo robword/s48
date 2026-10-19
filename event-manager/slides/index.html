@@ -80,6 +80,13 @@
   .vote .count span { color: var(--s48-accent-ink); }
   .vote .qr.wait { background: var(--s48-surface); color: var(--s48-text); }
   .pulse { animation: pulse 1.8s ease-in-out infinite; }
+
+  /* Form your team: once team selection starts, the advancing ideas in pitch order */
+  .teamline { font-family: var(--s48-font-heading); font-weight: 600; font-size: 40px; margin: -24px 0 40px; color: var(--s48-accent-2); }
+  .teams { display: grid; gap: 24px; }
+  .teams .t { border-radius: 16px; padding: 30px 34px; color: #fff; display: flex; align-items: center; gap: 24px; min-height: 120px; }
+  .teams.dense .t { min-height: 92px; padding: 20px 28px; }
+  .teams .t .nm { font-family: var(--s48-font-display); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
   @keyframes pulse { 50% { opacity: .45; } }
 </style>
 </head>
@@ -201,7 +208,11 @@
   <section class="slide" data-id="next">
     <div class="kicker">What's next</div>
     <h2>Form your team</h2>
-    <ul class="big">
+    <div id="teamsLive" hidden>
+      <p class="teamline" id="teamLine"></p>
+      <div class="teams" id="teamTiles"></div>
+    </div>
+    <ul class="big" id="nextStatic">
       <li>Top ideas come to the front</li>
       <li>Find the idea you want to build</li>
       <li>Balance skills: build, design, business</li>
@@ -335,7 +346,7 @@
       } else {
         renderVote(res);
       }
-      schedulePoll(voteSlideActive() ? 3000 : 15000);
+      schedulePoll(voteSlideActive() || slides[cur].getAttribute('data-id') === 'next' ? 3000 : 5000);
     });
   }
 
@@ -358,7 +369,7 @@
       urlEl.textContent = res.vote_url.replace(/^https?:\/\//, '');
       var n = res.counts ? res.counts.submitted : 0;
       count.innerHTML = '<span>' + n + '</span> ' + (n === 1 ? 'person has' : 'people have') + ' voted';
-    } else if (res.status === 'closed') {
+    } else if (res.status === 'closed' || res.status === 'teams') {
       qr.className = 'qr wait';
       qr.innerHTML = '<div>Voting<br>is closed</div>';
       title.textContent = 'Thanks for voting!';
@@ -375,7 +386,40 @@
       urlEl.textContent = '';
       count.textContent = '';
     }
+    renderTeams(res);
+    // When the operator starts team selection, bring up the "Form your team" slide.
+    if (res.status === 'teams' && lastStatus !== null && lastStatus !== 'teams') { location.hash = 'next'; go(fromHash()); }
     lastStatus = res.status;
+  }
+
+  var lastTeams = null;
+  function renderTeams(res) {
+    var on = res.status === 'teams' && res.teams && res.teams.length;
+    document.getElementById('teamsLive').hidden = !on;
+    document.getElementById('nextStatic').style.display = on ? 'none' : '';
+    if (!on) { lastTeams = null; return; }
+    var key = JSON.stringify([res.teams, res.team]);
+    if (key === lastTeams) { return; }
+    lastTeams = key;
+    var n = res.teams.length, t = res.team || {}, line = n + (n === 1 ? ' team' : ' teams');
+    if (t.participants > 0) {
+      var lo = Math.floor(t.participants / n), hi = Math.ceil(t.participants / n);
+      line += ' · ' + (lo === hi ? lo : lo + '–' + hi) + ' people per team';
+    }
+    document.getElementById('teamLine').textContent = line;
+    // Columns and type size so 1 to ~16 names fill the space below the title.
+    var cols = n <= 3 ? n : n === 4 ? 2 : n <= 12 ? 4 : 5, rows = Math.ceil(n / cols);
+    var box = document.getElementById('teamTiles'), colors = ['c-orange', 'c-teal', 'c-slate', 'c-deep'];
+    box.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+    box.style.fontSize = (rows === 1 ? 56 : rows === 2 ? 46 : rows === 3 ? 38 : 32) + 'px';
+    box.className = 'teams' + (rows >= 3 ? ' dense' : '');
+    box.innerHTML = '';
+    for (var i = 0; i < n; i++) {
+      var d = document.createElement('div'), nm = document.createElement('div');
+      d.className = 't ' + colors[i % colors.length];
+      nm.className = 'nm'; nm.textContent = res.teams[i];
+      d.appendChild(nm); box.appendChild(d);
+    }
   }
 
   fit();

@@ -203,7 +203,7 @@ try {
         show('voting');
         if (first) { loadBallot(); } else { renderList(); }
         schedule(15000);
-      } else if (res.status === 'closed') {
+      } else if (res.status === 'closed' || res.status === 'teams') {
         show('closed');
         schedule(20000);
       } else {

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../inc/auth.php';
+require __DIR__ . '/../inc/showcase.php';
 
 function s48_find_pitch(array $state, string $id): int
 {
@@ -16,6 +17,7 @@ function s48_find_pitch(array $state, string $id): int
 
 function s48_dashboard(array $state): array
 {
+    $info = s48_showcase()['info'];
     return [
         'ok' => true,
         'status' => $state['status'],
@@ -25,6 +27,8 @@ function s48_dashboard(array $state): array
         'pitches' => s48_public_pitches($state),
         'vote_url' => s48_vote_url(),
         'results' => s48_results($state),
+        'advance' => array_column(s48_advancing($state), 'id'),
+        'team' => s48_team_fit((int) $info['participants'], count(s48_advancing($state)), (int) $info['team_min'], (int) $info['team_max']),
         'server_time' => time(),
     ];
 }
@@ -75,6 +79,7 @@ s48_api(static function () {
                     throw new S48Error('Pitches can only be deleted before voting starts (reset to delete).', 409);
                 }
                 $i = s48_find_pitch($s, (string) ($body['id'] ?? ''));
+                $s['advance'] = array_values(array_diff($s['advance'] ?? [], [$s['pitches'][$i]['id']]));
                 array_splice($s['pitches'], $i, 1);
                 break;
 
@@ -88,6 +93,9 @@ s48_api(static function () {
 
             case 'start':
             case 'reopen':
+                if ($s['status'] === 'teams') {
+                    throw new S48Error('Stop team selection before reopening voting', 409);
+                }
                 if (count($s['pitches']) === 0) {
                     throw new S48Error('Add at least one pitch first');
                 }
@@ -102,6 +110,36 @@ s48_api(static function () {
                 }
                 $s['status'] = 'closed';
                 $s['closed_at'] = time();
+                break;
+
+            case 'advance':
+                // Ticking ideas to advance: only between closing the vote and starting team selection.
+                if ($s['status'] !== 'closed') {
+                    throw new S48Error($s['status'] === 'teams' ? 'Stop team selection to change the advancing ideas' : 'Close voting first', 409);
+                }
+                $id = $s['pitches'][s48_find_pitch($s, (string) ($body['id'] ?? ''))]['id'];
+                $adv = array_values(array_diff($s['advance'] ?? [], [$id]));
+                if (!empty($body['on'])) {
+                    $adv[] = $id;
+                }
+                $s['advance'] = $adv;
+                break;
+
+            case 'teams_start':
+                if ($s['status'] !== 'closed') {
+                    throw new S48Error('Close voting first', 409);
+                }
+                if (count(s48_advancing($s)) === 0) {
+                    throw new S48Error('Tick at least one idea to advance');
+                }
+                $s['status'] = 'teams';
+                break;
+
+            case 'teams_stop':
+                if ($s['status'] !== 'teams') {
+                    throw new S48Error('Team selection has not started', 409);
+                }
+                $s['status'] = 'closed';
                 break;
 
             case 'reset':

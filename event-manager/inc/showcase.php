@@ -33,6 +33,9 @@ function s48_default_showcase(): array
             'seconds' => 5,
             'mentor_day' => 'auto', // auto | sat | sun | all
             'timers' => s48_default_timers(),
+            'participants' => 0,   // for team sizing; 0 = not set
+            'team_min' => 4,
+            'team_max' => 6,
         ],
         'updated_at' => time(),
     ];
@@ -166,7 +169,21 @@ function s48_info_fields(array $in, array $cur): array
         'seconds' => max(3, min(15, $sec)),
         'mentor_day' => in_array($day, ['auto', 'sat', 'sun', 'all'], true) ? $day : 'auto',
         'timers' => s48_timer_fields($in['timers'] ?? null, $cur['timers'] ?? s48_default_timers()),
-    ];
+    ] + s48_team_fields($in, $cur);
+}
+
+function s48_team_fields(array $in, array $cur): array
+{
+    $p = (int) ($in['participants'] ?? $cur['participants'] ?? 0);
+    $min = (int) ($in['team_min'] ?? $cur['team_min'] ?? 4);
+    $max = (int) ($in['team_max'] ?? $cur['team_max'] ?? 6);
+    if ($p < 0 || $p > 1000) {
+        throw new S48Error('Number of participants must be between 0 and 1000');
+    }
+    if ($min < 1 || $max > 50 || $min > $max) {
+        throw new S48Error('Ideal team size: enter a range like 4 to 6');
+    }
+    return ['participants' => $p, 'team_min' => $min, 'team_max' => $max];
 }
 
 /**
