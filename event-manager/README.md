@@ -96,6 +96,19 @@ operator clicks **Start voting**, then shows the QR code, the short link and a l
 Both are outside the deploy sync, so a deploy never deletes them.
 `showcase/` and `api/showcase.php` are public by design (the loop runs without a login), so don't enter anything there you wouldn't put on the screen.
 
+## Event file (save / load)
+
+The **Event file** section at the bottom of the operator console saves the whole setup as one JSON file (`startup48-event-<date>.json`):
+organizers, judges and mentors with their headshots (cropped JPEGs, base64), event info, and the opening-pitch list.
+
+**Load event file…** replaces all of that in the current install (after a confirm prompt), for example to set up a fresh install or roll back.
+- Headshots upload one at a time, then a single request swaps everything over, so a failed load leaves the install unchanged.
+- Loading starts a fresh voting round with the file's pitches. Old round files stay on disk, as with Reset.
+- Loading is refused while voting is open.
+
+Not included: voting status and ballots, the operator password, and `inc/config.php`.
+The file does hold names, headshots and the Wi-Fi password, so share it accordingly.
+
 ## Voting flow
 
 1. Operator opens `admin/` and logs in.

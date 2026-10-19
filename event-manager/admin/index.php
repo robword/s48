@@ -253,6 +253,18 @@ $csrf = s48_csrf_token();
         <div class="row" style="grid-column: 1 / -1"><button class="primary" type="submit">Save event info</button><span class="muted" id="infoSaved"></span></div>
       </form>
     </section>
+
+    <section class="sc-info">
+      <h2>Event file</h2>
+      <p class="muted">Save everything set up here (organizers, judges and mentors with headshots, event info and the pitch list) to a file, or load one, for example into a fresh install.
+        Voting results and the operator password are not included.</p>
+      <div class="row">
+        <button type="button" id="saveEvent">Save event file</button>
+        <button type="button" id="loadEvent">Load event file…</button>
+        <input type="file" id="eventFile" accept=".json,application/json" hidden>
+        <span class="muted" id="eventMsg"></span>
+      </div>
+    </section>
   </div>
 
   <div class="modal" id="personModal" hidden>
@@ -629,6 +641,54 @@ $csrf = s48_csrf_token();
     if (crop.img && crop.changed) { body.photo = exportPhoto(); } else if (edit.person && crop.removed) { body.remove_photo = true; }
     $('pmSave').disabled = true; $('pmErr').textContent = '';
     api(body, function (err) { $('pmSave').disabled = false; if (err) { $('pmErr').textContent = err.message; } else { closeEditor(); } });
+  };
+
+  /* ---------- event file ---------- */
+  $('saveEvent').onclick = function () { location.href = '../api/event.php'; };   // served as a download
+  $('loadEvent').onclick = function () { $('eventFile').value = ''; $('eventFile').click(); };
+  $('eventFile').onchange = function () {
+    var file = this.files[0], msg = $('eventMsg');
+    if (!file) { return; }
+    msg.textContent = '';
+    var rd = new FileReader();
+    rd.onload = function () {
+      var ev;
+      try { ev = JSON.parse(rd.result); } catch (e) { msg.textContent = 'That file is not an event file.'; return; }
+      if (!ev || ev.format !== 'startup48-event' || !ev.people) { msg.textContent = 'That file is not an event file.'; return; }
+      var groups = ['organizers', 'judges', 'mentors'], people = [];
+      groups.forEach(function (g) { (ev.people[g] || []).forEach(function (p) { people.push(p); }); });
+      var pitches = (ev.pitches || []).length;
+      if (!confirm('Replace everything with this file?\n\n' + people.length + ' people, ' + pitches + ' pitches.\n\n' +
+        'Current organizers, judges, mentors, event info and pitches are removed, and voting starts a fresh round.')) { return; }
+      $('loadEvent').disabled = true;
+      // Headshots go up one at a time, then the rest in one request that swaps everything over.
+      var withPhoto = people.filter(function (p) { return p.photo; }), done = 0;
+      msg.textContent = 'Checking…';
+      S48.api('POST', '../api/event.php', { action: 'check' }, function (err) { if (err) { fail(err); } else { next(); } });
+      function next() {
+        if (done < withPhoto.length) {
+          msg.textContent = 'Uploading headshots ' + (done + 1) + ' of ' + withPhoto.length + '…';
+          S48.api('POST', '../api/event.php', { action: 'photo', photo: withPhoto[done].photo }, function (err, res) {
+            if (err) { fail(err); return; }
+            withPhoto[done].photo_ref = res.id; done++; next();
+          });
+          return;
+        }
+        var body = { format: ev.format, version: ev.version, info: ev.info || {}, pitches: ev.pitches || [], people: {} };
+        groups.forEach(function (g) {
+          body.people[g] = (ev.people[g] || []).map(function (p) { var q = {}; for (var k in p) { if (k !== 'photo') { q[k] = p[k]; } } return q; });
+        });
+        msg.textContent = 'Loading…';
+        S48.api('POST', '../api/event.php', { action: 'import', event: body }, function (err, res) {
+          if (err) { fail(err); return; }
+          $('loadEvent').disabled = false;
+          msg.textContent = 'Loaded ' + res.people + ' people and ' + res.pitches + ' pitches.';
+          api(null);
+        });
+      }
+      function fail(err) { $('loadEvent').disabled = false; msg.textContent = 'Load failed: ' + err.message.replace(/\.?$/, '.') + ' Nothing was changed.'; }
+    };
+    rd.readAsText(file);
   };
 
   api(null);
