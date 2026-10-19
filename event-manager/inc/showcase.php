@@ -11,6 +11,13 @@ require_once __DIR__ . '/bootstrap.php';
 const S48_GROUPS = ['organizers', 'judges', 'mentors'];
 const S48_MAX_PEOPLE = 60;
 const S48_MAX_PHOTO_BYTES = 1500000;
+// The pitch timer's presets: length in seconds, and when the Warning and Danger tones sound by default
+// (seconds left). Keep in step with PRESETS in timer/index.html.
+const S48_TIMERS = [
+    'opening' => ['label' => 'Opening Pitch', 'duration' => 60, 'warning' => 20, 'danger' => 10],
+    'final' => ['label' => 'Final Pitch', 'duration' => 300, 'warning' => 60, 'danger' => 20],
+    'qa' => ['label' => 'Q&A', 'duration' => 300, 'warning' => 60, 'danger' => 30],
+];
 
 function s48_default_showcase(): array
 {
@@ -25,9 +32,47 @@ function s48_default_showcase(): array
             'announce_body' => '',
             'seconds' => 5,
             'mentor_day' => 'auto', // auto | sat | sun | all
+            'timers' => s48_default_timers(),
         ],
         'updated_at' => time(),
     ];
+}
+
+function s48_default_timers(): array
+{
+    $t = [];
+    foreach (S48_TIMERS as $k => $d) {
+        $t[$k] = ['warning' => ['on' => true, 'at' => $d['warning']], 'danger' => ['on' => true, 'at' => $d['danger']]];
+    }
+    return $t;
+}
+
+/** Validates tone settings for each timer: on/off plus seconds left, inside the timer, Danger after Warning. */
+function s48_timer_fields($in, array $cur): array
+{
+    if (!is_array($in)) {
+        return $cur;
+    }
+    $out = [];
+    foreach (S48_TIMERS as $k => $d) {
+        foreach (['warning', 'danger'] as $tone) {
+            $t = $in[$k][$tone] ?? $cur[$k][$tone];
+            $at = (int) ($t['at'] ?? 0);
+            if ($at < 1 || $at >= $d['duration']) {
+                throw new S48Error($d['label'] . ': ' . ucfirst($tone) . ' must be between 0:01 and ' . s48_mmss($d['duration'] - 1));
+            }
+            $out[$k][$tone] = ['on' => !empty($t['on']), 'at' => $at];
+        }
+        if ($out[$k]['warning']['on'] && $out[$k]['danger']['on'] && $out[$k]['danger']['at'] >= $out[$k]['warning']['at']) {
+            throw new S48Error($d['label'] . ': Danger must come after Warning (less time left)');
+        }
+    }
+    return $out;
+}
+
+function s48_mmss(int $sec): string
+{
+    return intdiv($sec, 60) . ':' . str_pad((string) ($sec % 60), 2, '0', STR_PAD_LEFT);
 }
 
 function s48_showcase(): array
@@ -119,6 +164,7 @@ function s48_info_fields(array $in, array $cur): array
         'announce_body' => s48_clean_text($in['announce_body'] ?? $cur['announce_body'], 300),
         'seconds' => max(3, min(15, $sec)),
         'mentor_day' => in_array($day, ['auto', 'sat', 'sun', 'all'], true) ? $day : 'auto',
+        'timers' => s48_timer_fields($in['timers'] ?? null, $cur['timers'] ?? s48_default_timers()),
     ];
 }
 

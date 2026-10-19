@@ -111,21 +111,21 @@
   'use strict';
 
   var PRESETS = [
-    { label: 'Opening Pitch', duration: 60, warnings: [20, 10] },
-    { label: 'Final Pitch', duration: 300, warnings: [60, 20] },
-    { label: 'Q&A', duration: 300, warnings: [60, 30] }
+    { key: 'opening', label: 'Opening Pitch', duration: 60, tones: [{ at: 20, kind: 'warning' }, { at: 10, kind: 'danger' }] },
+    { key: 'final', label: 'Final Pitch', duration: 300, tones: [{ at: 60, kind: 'warning' }, { at: 20, kind: 'danger' }] },
+    { key: 'qa', label: 'Q&A', duration: 300, tones: [{ at: 60, kind: 'warning' }, { at: 30, kind: 'danger' }] }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
   var body = document.body;
   var timeEl = $('time');
 
-  var cfg = null;          // active {label, duration, warnings(desc)}
+  var cfg = null;          // active {label, duration, tones: [{at, kind}] latest-first}
   var presetIndex = -1;    // -1 = a timer from the URL (?d=…)
   var running = false;
   var endAt = 0;           // ms timestamp when remaining hits 0
   var remainingMs = 0;     // used while paused
-  var fired = {};          // warning seconds already sounded; 'zero' for the final buzzer
+  var fired = {};          // tones already sounded, by index; 'zero' for the final buzzer
   var muted = false;
   var tickHandle = null;
   var wakeLock = null;
@@ -507,12 +507,13 @@
 
   function render() {
     var ms = remaining(), text, phase = '', nextText = '';
-    var w = cfg.warnings;
+    var t = cfg.tones;
     if (ms > 0) {
       var sec = Math.ceil(ms / 1000);
       text = fmt(sec);
-      if (w.length && sec <= w[w.length - 1]) { phase = 'warn2'; } else if (w.length && sec <= w[0]) { phase = 'warn1'; }
-      for (var i = 0; i < w.length; i++) { if (sec > w[i]) { nextText = 'Next tone at ' + fmt(w[i]); break; } }
+      // Amber once the Warning tone's time is passed, orange once Danger's is.
+      for (var j = 0; j < t.length; j++) { if (sec <= t[j].at) { phase = t[j].kind === 'danger' ? 'warn2' : (phase || 'warn1'); } }
+      for (var i = 0; i < t.length; i++) { if (sec > t[i].at) { nextText = 'Next tone at ' + fmt(t[i].at); break; } }
       if (!nextText) { nextText = 'Final buzzer at 0:00'; }
     } else {
       var over = Math.floor(-ms / 1000);
@@ -528,12 +529,11 @@
   // Plays each cue once, when its time is crossed. Cues more than 5 s overdue (e.g. a background
   // tab the browser had paused) are skipped rather than played late.
   function checkTones() {
-    var sec = remaining() / 1000, w = cfg.warnings;
-    for (var i = 0; i < w.length; i++) {
-      if (!fired[w[i]] && sec <= w[i]) {
-        fired[w[i]] = true;
-        // Last warning gets the danger cue, earlier ones the warning cue.
-        if (sec > w[i] - 5) { play(i === w.length - 1 && w.length > 1 ? 'danger' : 'warning'); }
+    var sec = remaining() / 1000, t = cfg.tones;
+    for (var i = 0; i < t.length; i++) {
+      if (!fired[i] && sec <= t[i].at) {
+        fired[i] = true;
+        if (sec > t[i].at - 5) { play(t[i].kind); }
       }
     }
     if (!fired.zero && sec <= 0) { fired.zero = true; if (sec > -5) { play('end'); } }
@@ -544,7 +544,7 @@
   /* ---------- control ---------- */
   function load(c, idx) {
     stop();
-    cfg = { label: c.label, duration: c.duration, warnings: c.warnings.slice().sort(function (a, b) { return b - a; }) };
+    cfg = { label: c.label, duration: c.duration, tones: c.tones.slice().sort(function (a, b) { return b.at - a.at; }) };
     presetIndex = idx;
     remainingMs = cfg.duration * 1000;
     fired = {};
@@ -561,7 +561,7 @@
     if (running) { return; }
     // Mark warnings already behind us so resuming doesn't replay them.
     var sec = remainingMs / 1000;
-    for (var i = 0; i < cfg.warnings.length; i++) { if (sec < cfg.warnings[i]) { fired[cfg.warnings[i]] = true; } }
+    for (var i = 0; i < cfg.tones.length; i++) { if (sec < cfg.tones[i].at) { fired[i] = true; } }
     if (remainingMs <= 0) { fired.zero = true; }
     endAt = now() + remainingMs;
     running = true;
@@ -584,6 +584,30 @@
   // Switching timers mid-countdown would throw away the running time, so it waits for a pause.
   function lockPresets() { for (var i = 1; i <= 3; i++) { $('p' + i).disabled = running; } }
   function pickPreset(i) { if (!running) { load(PRESETS[i], i); } }
+
+  // Tone times set in the operator console. Applied to the presets; the timer on screen is reloaded
+  // only when it's untouched (not running, full time), so a countdown is never changed midway.
+  function applyToneSettings(timers) {
+    for (var i = 0; i < PRESETS.length; i++) {
+      var s = timers && timers[PRESETS[i].key], tones = [];
+      if (!s) { continue; }
+      if (s.warning && s.warning.on && s.warning.at > 0) { tones.push({ at: s.warning.at, kind: 'warning' }); }
+      if (s.danger && s.danger.on && s.danger.at > 0) { tones.push({ at: s.danger.at, kind: 'danger' }); }
+      PRESETS[i].tones = tones;
+    }
+    if (presetIndex >= 0 && !running && remainingMs === cfg_duration_ms()) { load(PRESETS[presetIndex], presetIndex); }
+  }
+  function fetchToneSettings() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', '../api/timer.php?_=' + now(), true);
+      x.onreadystatechange = function () {
+        if (x.readyState !== 4 || x.status !== 200) { return; }
+        try { var r = JSON.parse(x.responseText); if (r && r.timers) { store('tones', JSON.stringify(r.timers)); applyToneSettings(r.timers); } } catch (e) { }
+      };
+      x.send();
+    } catch (e) { }   // opened as a file or offline: keep the cached or built-in times
+  }
 
   function cfg_duration_ms() { return cfg ? cfg.duration * 1000 : 0; }
 
@@ -697,14 +721,20 @@
   if (qd) {
     var qw = /[?&]w=([\d,]+)/.exec(q), ql = /[?&]label=([^&]+)/.exec(q), wl = [];
     if (qw) { var a = qw[1].split(','); for (var x = 0; x < a.length; x++) { if (+a[x] > 0) { wl.push(+a[x]); } } }
-    load({ label: ql ? decodeURIComponent(ql[1].replace(/\+/g, ' ')) : 'Timer', duration: +qd[1], warnings: wl }, -1);
+    wl.sort(function (a, b) { return b - a; });
+    var tl = [];   // as before: with several times, the last gets the Danger tone, the rest Warning
+    for (var y = 0; y < wl.length; y++) { tl.push({ at: wl[y], kind: y === wl.length - 1 && wl.length > 1 ? 'danger' : 'warning' }); }
+    load({ label: ql ? decodeURIComponent(ql[1].replace(/\+/g, ' ')) : 'Timer', duration: +qd[1], tones: tl }, -1);
   } else {
     var last = null;
     try { last = JSON.parse(store('last') || 'null'); } catch (e) { }
     // Reopen the last preset (from the current list, so renamed labels show); anything else starts on Final Pitch.
     var li = last && last.i >= 0 && last.i < PRESETS.length ? last.i : 1;
+    try { applyToneSettings(JSON.parse(store('tones') || 'null')); } catch (e) { }
     load(PRESETS[li], li);
   }
+  fetchToneSettings();
+  setInterval(fetchToneSettings, 30000);
 })();
 </script>
 </body>

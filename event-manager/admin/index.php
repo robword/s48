@@ -87,6 +87,12 @@ $csrf = s48_csrf_token();
   .barfill { height: 14px; background: var(--s48-accent); border-radius: 3px; transition: width .4s; }
   .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
   .muted { color: var(--s48-muted); font-size: 13px; }
+  table.tones { width: auto; margin-bottom: 12px; }
+  table.tones td, table.tones th { padding: 6px 18px 6px 0; }
+  table.tones label { display: inline-flex; align-items: center; gap: 8px; }
+  table.tones input[type=text] { width: 5em; }
+  table.tones tr.off-warning td:nth-child(2) input[type=text], table.tones tr.off-danger td:nth-child(3) input[type=text] { opacity: .4; }
+  #toneSaved.bad { color: var(--s48-bad); font-weight: 700; }
   #eventMsg.bad { color: var(--s48-bad); font-weight: 700; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--s48-bad); color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 700; display: none; }
   .login { max-width: 360px; margin: 12vh auto; padding: 24px; background: var(--s48-surface); border-radius: 14px; }
@@ -252,6 +258,22 @@ $csrf = s48_csrf_token();
         <label class="wide">Announcement slide title (leave blank to skip)<input type="text" id="i-announce_title" maxlength="60" placeholder="Need something printed?"></label>
         <label class="wide">Announcement text<textarea id="i-announce_body" rows="2" maxlength="300"></textarea></label>
         <div class="row" style="grid-column: 1 / -1"><button class="primary" type="submit">Save event info</button><span class="muted" id="infoSaved"></span></div>
+      </form>
+    </section>
+
+    <section class="sc-info">
+      <h2>Pitch timer tones</h2>
+      <p class="muted">When each tone sounds, as time left on the clock. Untick to turn a tone off. Open timers pick up changes the next time a timer is chosen or reset.</p>
+      <form id="toneForm">
+        <table class="tones">
+          <thead><tr><th>Timer</th><th>Warning</th><th>Danger</th></tr></thead>
+          <tbody>
+            <tr data-timer="opening"><td>Opening Pitch <span class="muted">1:00</span></td><td></td><td></td></tr>
+            <tr data-timer="final"><td>Final Pitch <span class="muted">5:00</span></td><td></td><td></td></tr>
+            <tr data-timer="qa"><td>Q&amp;A <span class="muted">5:00</span></td><td></td><td></td></tr>
+          </tbody>
+        </table>
+        <div class="row"><button class="primary" type="submit">Save timer tones</button><span class="muted" id="toneSaved"></span></div>
       </form>
     </section>
 
@@ -521,11 +543,61 @@ $csrf = s48_csrf_token();
     if (!document.activeElement || !$('infoForm').contains(document.activeElement)) {
       for (var k in data.info) { if (data.info.hasOwnProperty(k) && $('i-' + k)) { $('i-' + k).value = data.info[k]; } }
     }
+    renderTones();
   }
 
   document.querySelectorAll('.sc-col .add').forEach(function (b) {
     b.onclick = function () { openEditor(b.closest('.sc-col').getAttribute('data-group'), null); };
   });
+
+  /* ---------- pitch timer tones ---------- */
+  var TONES = ['warning', 'danger'];
+  function mmss(sec) { return Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2); }
+  function parseMmss(v) {
+    v = String(v).replace(/\s+/g, '');
+    var m = /^(\d+):([0-5]\d)$/.exec(v);
+    return m ? +m[1] * 60 + +m[2] : (/^\d+$/.test(v) ? +v : NaN);
+  }
+  document.querySelectorAll('#toneForm tr[data-timer]').forEach(function (tr) {
+    TONES.forEach(function (tone, i) {
+      var td = tr.children[i + 1], lb = el('label'), cb = el('input'), at = el('input');
+      cb.type = 'checkbox'; cb.className = 'on'; cb.setAttribute('data-tone', tone); cb.title = 'Sound the ' + tone + ' tone';
+      at.type = 'text'; at.className = 'at'; at.setAttribute('data-tone', tone); at.placeholder = 'm:ss'; at.setAttribute('aria-label', tone + ' time left');
+      cb.onchange = function () { tr.classList.toggle('off-' + tone, !cb.checked); };
+      lb.appendChild(cb); lb.appendChild(at); td.appendChild(lb);
+    });
+  });
+  function renderTones() {
+    if (document.activeElement && $('toneForm').contains(document.activeElement)) { return; }
+    var t = data.info.timers || {};
+    document.querySelectorAll('#toneForm tr[data-timer]').forEach(function (tr) {
+      TONES.forEach(function (tone) {
+        var v = (t[tr.getAttribute('data-timer')] || {})[tone] || { on: false, at: 0 };
+        tr.querySelector('.on[data-tone="' + tone + '"]').checked = v.on;
+        tr.querySelector('.at[data-tone="' + tone + '"]').value = mmss(v.at);
+        tr.classList.toggle('off-' + tone, !v.on);
+      });
+    });
+  }
+  $('toneForm').onsubmit = function (e) {
+    e.preventDefault();
+    var timers = {}, bad = null;
+    document.querySelectorAll('#toneForm tr[data-timer]').forEach(function (tr) {
+      var k = tr.getAttribute('data-timer'); timers[k] = {};
+      TONES.forEach(function (tone) {
+        var at = parseMmss(tr.querySelector('.at[data-tone="' + tone + '"]').value);
+        if (isNaN(at) && !bad) { bad = tr.children[0].firstChild.textContent.trim() + ': enter the ' + tone + ' time as m:ss'; }
+        timers[k][tone] = { on: tr.querySelector('.on[data-tone="' + tone + '"]').checked, at: at };
+      });
+    });
+    var msg = $('toneSaved');
+    if (bad) { msg.className = 'bad'; msg.textContent = bad; return; }
+    document.activeElement.blur();
+    api({ action: 'info', fields: { timers: timers } }, function (err) {
+      msg.className = err ? 'bad' : 'muted';
+      msg.textContent = err ? err.message : 'Saved ' + new Date().toLocaleTimeString();
+    });
+  };
 
   $('infoForm').onsubmit = function (e) {
     e.preventDefault();
