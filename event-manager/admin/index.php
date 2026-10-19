@@ -87,6 +87,7 @@ $csrf = s48_csrf_token();
   .barfill { height: 14px; background: var(--s48-accent); border-radius: 3px; transition: width .4s; }
   .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
   .muted { color: var(--s48-muted); font-size: 13px; }
+  #eventMsg.bad { color: var(--s48-bad); font-weight: 700; }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--s48-bad); color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 700; display: none; }
   .login { max-width: 360px; margin: 12vh auto; padding: 24px; background: var(--s48-surface); border-radius: 14px; }
   .login .err { color: var(--s48-bad); margin: 8px 0; }
@@ -653,18 +654,23 @@ $csrf = s48_csrf_token();
     var rd = new FileReader();
     rd.onload = function () {
       var ev;
-      try { ev = JSON.parse(rd.result); } catch (e) { msg.textContent = 'That file is not an event file.'; return; }
-      if (!ev || ev.format !== 'startup48-event' || !ev.people) { msg.textContent = 'That file is not an event file.'; return; }
+      try { ev = JSON.parse(rd.result); } catch (e) { ev = null; }
+      if (!ev || ev.format !== 'startup48-event' || !ev.people) { msg.className = 'bad'; msg.textContent = 'That file is not an event file.'; alert(msg.textContent); return; }
       var groups = ['organizers', 'judges', 'mentors'], people = [];
       groups.forEach(function (g) { (ev.people[g] || []).forEach(function (p) { people.push(p); }); });
       var pitches = (ev.pitches || []).length;
-      if (!confirm('Replace everything with this file?\n\n' + people.length + ' people, ' + pitches + ' pitches.\n\n' +
-        'Current organizers, judges, mentors, event info and pitches are removed, and voting starts a fresh round.')) { return; }
-      $('loadEvent').disabled = true;
       // Headshots go up one at a time, then the rest in one request that swaps everything over.
       var withPhoto = people.filter(function (p) { return p.photo; }), done = 0;
-      msg.textContent = 'Checking…';
-      S48.api('POST', '../api/event.php', { action: 'check' }, function (err) { if (err) { fail(err); } else { next(); } });
+      $('loadEvent').disabled = true; msg.className = 'muted'; msg.textContent = 'Checking…';
+      // Ask first whether a load can happen now (not while voting is open), before the confirm.
+      S48.api('POST', '../api/event.php', { action: 'check' }, function (err) {
+        if (err) { fail(err); return; }
+        if (!confirm('Replace everything with this file?\n\n' + people.length + ' people, ' + pitches + ' pitches.\n\n' +
+          'Current organizers, judges, mentors, event info and pitches are removed, and voting starts a fresh round.')) {
+          $('loadEvent').disabled = false; msg.textContent = ''; return;
+        }
+        next();
+      });
       function next() {
         if (done < withPhoto.length) {
           msg.textContent = 'Uploading headshots ' + (done + 1) + ' of ' + withPhoto.length + '…';
@@ -682,11 +688,14 @@ $csrf = s48_csrf_token();
         S48.api('POST', '../api/event.php', { action: 'import', event: body }, function (err, res) {
           if (err) { fail(err); return; }
           $('loadEvent').disabled = false;
-          msg.textContent = 'Loaded ' + res.people + ' people and ' + res.pitches + ' pitches.';
+          msg.className = 'muted'; msg.textContent = 'Loaded ' + res.people + ' people and ' + res.pitches + ' pitches.';
           api(null);
         });
       }
-      function fail(err) { $('loadEvent').disabled = false; msg.textContent = 'Load failed: ' + err.message.replace(/\.?$/, '.') + ' Nothing was changed.'; }
+      function fail(err) {
+        var text = 'Load failed: ' + err.message.replace(/\.?$/, '.') + ' Nothing was changed.';
+        $('loadEvent').disabled = false; msg.className = 'bad'; msg.textContent = text; alert(text);
+      }
     };
     rd.readAsText(file);
   };
