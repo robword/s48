@@ -7,7 +7,7 @@
 <title>startup48 · Pitch Timer</title>
 <!--
   Self-contained pitch timer: no external files, ES5 JavaScript.
-  Keys: Space start/pause · R reset · 1/2/3 presets · F fullscreen · M mute · H hide controls
+  Keys: Space start/pause · R reset · 1/2/3 presets (not while running) · F fullscreen · M mute · H hide controls
   URL presets: ?d=300&w=60,20&label=Pitch  (seconds)
 -->
 <style>
@@ -58,10 +58,15 @@
   button.primary { background: #ee512b; color: #fff; min-width: 12vw; }
   body.warn2 button.primary { background: #ffffff; color: #ee512b; }
   .group { display: inline-block; margin: 0 1vw; vertical-align: middle; }
-  #custom { display: none; margin-top: 1vh; font-size: 2.2vh; }
-  #custom.open { display: block; }
-  #custom input { width: 7em; padding: .5vh .6vw; font-size: 2.2vh; border-radius: 6px; border: 1px solid #3a6c88; background: #1b3c52; color: #ffffff; }
-  #custom input.wide { width: 11em; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  /* Options row, shown and hidden with the gear. */
+  #opts { display: none; margin-top: .6vh; }
+  body.show-opts #opts { display: block; }
+  .group button { vertical-align: middle; }
+  #gear { padding: 1.2vh 1vw; line-height: 0; }
+  #gear svg { width: 2.8vh; height: 2.8vh; transition: transform .3s ease; }
+  body.show-opts #gear { border-color: #ffffff; }
+  body.show-opts #gear svg { transform: rotate(60deg); }
   #hint { font-size: 1.6vh; opacity: .55; margin-top: .6vh; }
   #endWrap { display: inline-block; margin: .4vh .6vw; font-size: 2.1vh; font-weight: 700; vertical-align: middle; }
   #endSound { font: inherit; font-weight: 700; font-size: 2vh; padding: .6vh .5vw; border-radius: 8px; border: 2px solid transparent; background: #2f617d; color: #ffffff; }
@@ -81,28 +86,22 @@
   <div id="next"></div>
   <div id="controls">
     <div class="group">
-      <button id="p1" data-preset="0">1 · Practice 1:00</button>
+      <button id="p1" data-preset="0">1 · Opening Pitch 1:00</button>
       <button id="p2" data-preset="1">2 · Pitch 5:00</button>
       <button id="p3" data-preset="2">3 · Q&amp;A 5:00</button>
-      <button id="pc">Custom…</button>
     </div>
     <div class="group">
       <button id="start" class="primary">Start</button>
       <button id="reset">Reset</button>
+      <button id="gear" title="Show or hide options" aria-label="Options" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.71 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.31-.07.63-.07.94s.02.63.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
     </div>
-    <div class="group">
+    <div class="group" id="opts">
       <button id="mute">Sound: on</button>
       <label id="volWrap">Volume <input id="vol" type="range" min="0" max="100" step="5" value="80" aria-label="Volume"></label>
       <label id="endWrap">End sound <select id="endSound" aria-label="End sound"></select></label>
       <button id="test">Test sounds</button>
       <button id="fs">Fullscreen</button>
       <button id="hide">Hide</button>
-    </div>
-    <div id="custom">
-      Label <input id="cLabel" class="wide" value="Custom">
-      Duration <input id="cDur" value="3:00" title="m:ss or seconds">
-      Warnings <input id="cWarn" class="wide" value="1:00, 0:30" title="comma separated, m:ss or seconds">
-      <button id="cApply">Apply</button>
     </div>
     <div id="hint">Space start/pause · R reset · 1 2 3 presets · F fullscreen · M mute · H hide controls · D audio diagnostics</div>
   </div>
@@ -112,7 +111,7 @@
   'use strict';
 
   var PRESETS = [
-    { label: 'Practice pitch', duration: 60, warnings: [20, 10] },
+    { label: 'Opening Pitch', duration: 60, warnings: [20, 10] },
     { label: 'Pitch', duration: 300, warnings: [60, 20] },
     { label: 'Q&A', duration: 300, warnings: [60, 30] }
   ];
@@ -122,7 +121,7 @@
   var timeEl = $('time');
 
   var cfg = null;          // active {label, duration, warnings(desc)}
-  var presetIndex = -1;    // -1 = custom
+  var presetIndex = -1;    // -1 = a timer from the URL (?d=…)
   var running = false;
   var endAt = 0;           // ms timestamp when remaining hits 0
   var remainingMs = 0;     // used while paused
@@ -468,16 +467,6 @@
   }
 
   /* ---------- time helpers ---------- */
-  function parseTime(s) {
-    s = String(s).replace(/\s+/g, '');
-    if (!s) { return NaN; }
-    if (s.indexOf(':') !== -1) {
-      var p = s.split(':');
-      return parseInt(p[0] || '0', 10) * 60 + parseInt(p[1] || '0', 10);
-    }
-    return parseInt(s, 10);
-  }
-
   function fmt(sec) {
     var m = Math.floor(sec / 60), s = sec % 60;
     return m + ':' + (s < 10 ? '0' : '') + s;
@@ -510,7 +499,9 @@
   }
 
   function setPhase(ph) {
-    var keep = (' ' + body.className + ' ').indexOf(' hide-controls ') !== -1 ? ' hide-controls' : '';
+    var cur = ' ' + body.className + ' ', keep = '';   // keep the view toggles; only the phase class changes
+    if (cur.indexOf(' hide-controls ') !== -1) { keep += ' hide-controls'; }
+    if (cur.indexOf(' show-opts ') !== -1) { keep += ' show-opts'; }
     body.className = (ph + keep).replace(/^\s+/, '');
   }
 
@@ -560,7 +551,6 @@
     $('start').textContent = 'Start';
     $('label').textContent = cfg.label;
     for (var i = 0; i < 3; i++) { $('p' + (i + 1)).className = i === idx ? 'on' : ''; }
-    $('pc').className = idx === -1 ? 'on' : '';
     store('last', JSON.stringify({ c: cfg, i: idx }));
     render();
     fitText();
@@ -577,6 +567,7 @@
     running = true;
     tickHandle = setInterval(tick, 100);
     $('start').textContent = 'Pause';
+    lockPresets();
     requestWakeLock();
     tick();
   }
@@ -587,7 +578,12 @@
     clearInterval(tickHandle);
     $('start').textContent = remainingMs < cfg_duration_ms() ? 'Resume' : 'Start';
     releaseWakeLock();
+    lockPresets();
   }
+
+  // Switching timers mid-countdown would throw away the running time, so it waits for a pause.
+  function lockPresets() { for (var i = 1; i <= 3; i++) { $('p' + i).disabled = running; } }
+  function pickPreset(i) { if (!running) { load(PRESETS[i], i); } }
 
   function cfg_duration_ms() { return cfg ? cfg.duration * 1000 : 0; }
 
@@ -629,27 +625,21 @@
     updateDiag();
   }
 
-  function applyCustom() {
-    var d = parseTime($('cDur').value);
-    if (!(d > 0)) { alert('Enter a duration like 3:00 or 180'); return; }
-    var parts = $('cWarn').value.split(','), w = [], i;
-    for (i = 0; i < parts.length; i++) {
-      var t = parseTime(parts[i]);
-      if (t > 0 && t < d) { w.push(t); }
-    }
-    var c = { label: $('cLabel').value || 'Custom', duration: d, warnings: w };
-    store('custom', JSON.stringify(c));
-    load(c, -1);
+  function toggleOpts() {
+    var show = body.className.indexOf('show-opts') === -1;
+    body.className = show ? body.className + ' show-opts' : body.className.replace(/\s*show-opts/, '');
+    $('gear').setAttribute('aria-expanded', show ? 'true' : 'false');
+    store('opts', show ? '1' : '0');
+    fitText();
   }
 
   /* ---------- wiring ---------- */
   function on(el, ev, fn) { if (el.addEventListener) { el.addEventListener(ev, fn, false); } else { el.attachEvent('on' + ev, fn); } }
 
   for (var pi = 0; pi < 3; pi++) {
-    (function (i) { on($('p' + (i + 1)), 'click', function () { load(PRESETS[i], i); }); })(pi);
+    (function (i) { on($('p' + (i + 1)), 'click', function () { pickPreset(i); }); })(pi);
   }
-  on($('pc'), 'click', function () { var c = $('custom'); c.className = c.className === 'open' ? '' : 'open'; });
-  on($('cApply'), 'click', applyCustom);
+  on($('gear'), 'click', function () { toggleOpts(); $('gear').blur(); });
   on($('start'), 'click', toggle);
   on($('reset'), 'click', reset);
   on($('mute'), 'click', function () { setMuted(!muted); });
@@ -669,12 +659,11 @@
     var tag = (e.target && e.target.tagName) || '';
     if (tag === 'SELECT') { return; }
     var isRange = tag === 'INPUT' && e.target.type === 'range';
-    if (tag === 'INPUT' && !isRange) { if (e.keyCode === 13) { applyCustom(); } return; }
     // The volume slider keeps its arrow keys; every other shortcut still works while it has focus.
     if (isRange && e.keyCode >= 37 && e.keyCode <= 40) { return; }
     unlockAudio();
     var k = e.keyCode;
-    if (k === 32) { toggle(); } else if (k === 82) { reset(); } else if (k === 70) { toggleFullscreen(); } else if (k === 77) { setMuted(!muted); } else if (k === 72) { toggleHide(); } else if (k === 68) { var dg = $('diag'); dg.style.display = dg.style.display === 'none' ? 'block' : 'none'; updateDiag(); } else if (k >= 49 && k <= 51) { load(PRESETS[k - 49], k - 49); } else { return; }
+    if (k === 32) { toggle(); } else if (k === 82) { reset(); } else if (k === 70) { toggleFullscreen(); } else if (k === 77) { setMuted(!muted); } else if (k === 72) { toggleHide(); } else if (k === 68) { var dg = $('diag'); dg.style.display = dg.style.display === 'none' ? 'block' : 'none'; updateDiag(); } else if (k >= 49 && k <= 51) { pickPreset(k - 49); } else { return; }
     if (e.preventDefault) { e.preventDefault(); }
     if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
   });
@@ -702,10 +691,7 @@
   })();
   var savedVol = parseFloat(store('volume'));
   setVolume(isNaN(savedVol) ? 0.8 : savedVol);
-  try {
-    var cust = JSON.parse(store('custom') || 'null');
-    if (cust) { $('cLabel').value = cust.label; $('cDur').value = fmt(cust.duration); var ws = []; for (var j = 0; j < cust.warnings.length; j++) { ws.push(fmt(cust.warnings[j])); } $('cWarn').value = ws.join(', '); }
-  } catch (e) { }
+  if (store('opts') === '1') { toggleOpts(); }
 
   var q = window.location.search, qd = /[?&]d=(\d+)/.exec(q);
   if (qd) {
@@ -715,7 +701,9 @@
   } else {
     var last = null;
     try { last = JSON.parse(store('last') || 'null'); } catch (e) { }
-    if (last && last.c && last.c.duration > 0) { load(last.c, last.i); } else { load(PRESETS[1], 1); }
+    // Reopen the last preset (from the current list, so renamed labels show); anything else starts on Pitch.
+    var li = last && last.i >= 0 && last.i < PRESETS.length ? last.i : 1;
+    load(PRESETS[li], li);
   }
 })();
 </script>

@@ -34,15 +34,17 @@ License, Ubuntu under the Ubuntu Font Licence), so nothing loads from a CDN on v
 
 ## Pitch timer
 
-Open `timer/`. Presets: **1** practice 1:00 (tones at 0:20, 0:10), **2** pitch 5:00 (1:00, 0:20),
-**3** Q&A 5:00 (1:00, 0:30), or **Custom…** (saved in the browser).
+Open `timer/`. Presets: **1** Opening Pitch 1:00 (tones at 0:20, 0:10), **2** Pitch 5:00 (1:00, 0:20),
+**3** Q&A 5:00 (1:00, 0:30). Presets can't be switched while the timer runs; pause first.
+Any other length can be opened by link, e.g. `timer/?d=180&w=60,30&label=Demo` (seconds).
+The gear button shows or hides the options row: sound on/off, volume, end sound, test sounds, fullscreen and hide. Each laptop remembers whether the row is open.
 
 - Keys: `Space` start/pause · `R` reset · `1` `2` `3` presets · `F` fullscreen · `M` mute · `H` hide controls · `D` audio diagnostics
 - Sounds are re-created from pitchtimer.com's cues (synthesized in the browser, no audio files):
   - **First warning:** a soft sine "bonk" (C5).
   - **Last warning:** a bright bell-like "ping".
   - **0:00:** the **End sound** chosen on the timer: singing bowl (default), air horn, 8-bit level complete, power-down sweep, or the original noise burst. Choosing one plays it; each laptop remembers its own choice.
-  After 0:00 the timer counts up in red (`+0:12`). Custom timers: the last warning time gets the ping, earlier ones the bonk.
+  After 0:00 the timer counts up in red (`+0:12`). For a timer opened by link, the last warning time gets the ping and earlier ones the bonk.
 - The background turns amber after the first warning, orange after the last, and red in overtime.
 - Bookmarkable: `timer/?d=180&w=60,30&label=Demo` (values in seconds).
 - Click once (or press any key) before the first pitch so the browser allows sound. Use **Test sounds** (plays both warnings and the chosen end sound, and turns sound on if it was off) and the **Volume** slider to check levels.
