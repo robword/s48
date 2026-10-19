@@ -59,6 +59,12 @@
   .sched .day tr:first-child td { border-top: 0; }
   .sched .day td:first-child { width: 142px; white-space: nowrap; padding-right: 16px; color: var(--s48-muted); font-variant-numeric: tabular-nums; }
   .sched .day.today { box-shadow: 0 0 0 4px var(--s48-accent-2); }
+  /* Countdown to Final Pitches, under the schedule. */
+  .until { position: absolute; left: 140px; right: 140px; top: 770px; text-align: center; }
+  .until .lb { font-family: var(--s48-font-heading); font-weight: 700; font-size: 34px; letter-spacing: .14em; text-transform: uppercase; color: var(--s48-accent-ink); }
+  .until .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 150px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .until .clock .d { display: inline-block; width: .64em; text-align: center; }
+  .until .now { font-family: var(--s48-font-display); font-weight: 700; font-size: 84px; margin-top: 30px; }
   .c-orange { background: var(--s48-orange); } .c-teal { background: var(--s48-teal); } .c-slate { background: var(--s48-slate); }
 
   #paused { position: absolute; right: 140px; bottom: 50px; font-size: 24px; color: var(--s48-muted); display: none; z-index: 10; }
@@ -195,6 +201,50 @@
     if (data.info.wifi_pass) { var b = el('div', 'row'); b.appendChild(document.createTextNode('Password: ')); b.appendChild(el('b', '', data.info.wifi_pass)); c.appendChild(b); }
     s.appendChild(c); swapIn(s); await wait(10000, myRun);
   }
+  // When "Final Pitches" starts, from the schedule: the next time its day and time come round on
+  // this screen's clock. Null when the schedule has no such row.
+  function finalPitchesAt() {
+    var box = document.createElement('div'); box.innerHTML = scheduleHTML;
+    var days = box.querySelectorAll('.day'), names = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (var i = 0; i < days.length; i++) {
+      var rows = days[i].querySelectorAll('tr');
+      for (var j = 0; j < rows.length; j++) {
+        var c = rows[j].querySelectorAll('td');
+        if (c.length < 2 || !/final pitch/i.test(c[1].textContent)) { continue; }
+        var h3 = days[i].querySelector('h3'), dow = -1, txt = h3 ? h3.textContent.toLowerCase() : '';
+        names.forEach(function (n, k) { if (txt.indexOf(n) !== -1) { dow = k; } });
+        var m = /(\d{1,2}):(\d{2})\s*([ap])\.?m/i.exec(c[0].textContent);
+        if (dow < 0 || !m) { return null; }
+        var hr = (+m[1] % 12) + (m[3].toLowerCase() === 'p' ? 12 : 0), now = new Date();
+        var at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hr, +m[2], 0);
+        at.setDate(at.getDate() + (dow - now.getDay() + 7) % 7);
+        return at;   // on the day itself this can be in the past: the pitches are underway
+      }
+    }
+    return null;
+  }
+  function untilBlock() {
+    var at = finalPitchesAt();
+    if (!at) { return null; }
+    var b = el('div', 'until');
+    function draw() {
+      var ms = at - new Date();
+      b.textContent = '';
+      if (ms <= 0) { b.appendChild(el('div', 'now', 'Final Pitches are underway!')); return; }
+      var t = Math.floor(ms / 1000), two = function (n) { return ('0' + n).slice(-2); };
+      b.appendChild(el('div', 'lb', 'Time Until Final Pitches'));
+      var clock = el('div', 'clock');
+      // One fixed-width slot per digit, so the clock doesn't shift sideways as the digits change.
+      (two(Math.floor(t / 3600)) + ':' + two(Math.floor(t / 60) % 60) + ':' + two(t % 60)).split('').forEach(function (ch) {
+        clock.appendChild(ch === ':' ? document.createTextNode(':') : el('span', 'd', ch));
+      });
+      b.appendChild(clock);
+    }
+    draw();
+    b.timer = setInterval(draw, 250);
+    return b;
+  }
+
   async function scheduleSlide(myRun) {
     var s = frame('', 'The weekend at a glance'), box = el('div', 'sched');
     box.innerHTML = scheduleHTML;
@@ -202,7 +252,10 @@
     if (dayIdx !== undefined && days[dayIdx]) { days[dayIdx].classList.add('today'); }
     s.appendChild(box);
     if (data.info.mentor_hours) { s.appendChild(el('div', 'badge', data.info.mentor_hours)); }
-    swapIn(s); await wait(15000, myRun);
+    var until = untilBlock();
+    if (until) { s.appendChild(until); }
+    swapIn(s);
+    try { await wait(15000, myRun); } finally { if (until) { clearInterval(until.timer); } }
   }
   async function announceSlide(myRun) {
     var s = frame('', data.info.announce_title), c = el('div', 'center ann');

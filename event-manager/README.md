@@ -92,6 +92,7 @@ operator clicks **Start voting**, then shows the QR code, the short link and a l
 - Any step with no content is skipped.
 - On the people slides, each headshot flies from the grid into the spotlight with its caption.
 - The schedule is read from the opening-night deck (`slides/`), and today's column is highlighted.
+- Under the schedule, a live **Time Until Final Pitches** countdown (`HH:MM:SS`) runs to the "Final Pitches" row's day and time, by the screen's clock. After that time on the day it reads "Final Pitches are underway!". It's hidden if the schedule has no such row.
 - It checks for console changes every 5 s. If the slide on screen is affected, it redraws in place, keeping the same person in the spotlight. Other changes show when their slide comes up.
 - After a deploy it reloads itself at the next slide change (it watches `version.json`).
 - Keys: `→` skips to the next slide, `Space` pauses.
