@@ -112,7 +112,7 @@
 
   var PRESETS = [
     { key: 'opening', label: 'Opening Pitch', duration: 60, tones: [{ at: 20, kind: 'warning' }, { at: 10, kind: 'danger' }] },
-    { key: 'final', label: 'Final Pitch', duration: 300, tones: [{ at: 60, kind: 'warning' }, { at: 20, kind: 'danger' }] },
+    { key: 'final', label: 'Final Pitch', duration: 300, tones: [{ at: 60, kind: 'warning' }, { at: 30, kind: 'danger' }] },
     { key: 'qa', label: 'Q&A', duration: 300, tones: [{ at: 60, kind: 'warning' }, { at: 30, kind: 'danger' }] }
   ];
 
@@ -120,7 +120,7 @@
   var body = document.body;
   var timeEl = $('time');
 
-  var cfg = null;          // active {label, duration, tones: [{at, kind}] latest-first}
+  var cfg = null;          // active {label, duration, tones: [{at, kind}] latest-first, countUp}
   var presetIndex = -1;    // -1 = a timer from the URL (?d=…)
   var running = false;
   var endAt = 0;           // ms timestamp when remaining hits 0
@@ -517,7 +517,7 @@
       if (!nextText) { nextText = 'Final buzzer at 0:00'; }
     } else {
       var over = Math.floor(-ms / 1000);
-      text = (running || ms < 0) ? '+' + fmt(over) : '0:00';
+      text = cfg.countUp && (running || ms < 0) ? '+' + fmt(over) : '0:00';   // with count-up off it holds at 0:00
       phase = 'over' + ((running && Math.floor(-ms / 500) % 2 === 0) ? ' flash' : '');
       nextText = 'Time is up';
     }
@@ -544,7 +544,7 @@
   /* ---------- control ---------- */
   function load(c, idx) {
     stop();
-    cfg = { label: c.label, duration: c.duration, tones: c.tones.slice().sort(function (a, b) { return b.at - a.at; }) };
+    cfg = { label: c.label, duration: c.duration, tones: c.tones.slice().sort(function (a, b) { return b.at - a.at; }), countUp: c.countUp !== false };
     presetIndex = idx;
     remainingMs = cfg.duration * 1000;
     fired = {};
@@ -594,6 +594,7 @@
       if (s.warning && s.warning.on && s.warning.at > 0) { tones.push({ at: s.warning.at, kind: 'warning' }); }
       if (s.danger && s.danger.on && s.danger.at > 0) { tones.push({ at: s.danger.at, kind: 'danger' }); }
       PRESETS[i].tones = tones;
+      PRESETS[i].countUp = s.count_up !== false;
     }
     if (presetIndex >= 0 && !running && remainingMs === cfg_duration_ms()) { load(PRESETS[presetIndex], presetIndex); }
   }

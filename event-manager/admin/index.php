@@ -263,14 +263,14 @@ $csrf = s48_csrf_token();
 
     <section class="sc-info">
       <h2>Pitch timer tones</h2>
-      <p class="muted">When each tone sounds, as time left on the clock. Untick to turn a tone off. Open timers pick up changes the next time a timer is chosen or reset.</p>
+      <p class="muted">When each tone sounds, as time left on the clock. Untick to turn a tone off. With count-up off, the clock stops at 0:00 instead of showing overtime. Open timers pick up changes the next time a timer is chosen or reset.</p>
       <form id="toneForm">
         <table class="tones">
-          <thead><tr><th>Timer</th><th>Warning</th><th>Danger</th></tr></thead>
+          <thead><tr><th>Timer</th><th>Warning</th><th>Danger</th><th>Count up after 0:00</th></tr></thead>
           <tbody>
-            <tr data-timer="opening"><td>Opening Pitch <span class="muted">1:00</span></td><td></td><td></td></tr>
-            <tr data-timer="final"><td>Final Pitch <span class="muted">5:00</span></td><td></td><td></td></tr>
-            <tr data-timer="qa"><td>Q&amp;A <span class="muted">5:00</span></td><td></td><td></td></tr>
+            <tr data-timer="opening"><td>Opening Pitch <span class="muted">1:00</span></td><td></td><td></td><td><input type="checkbox" class="up" aria-label="Opening Pitch counts up after 0:00"></td></tr>
+            <tr data-timer="final"><td>Final Pitch <span class="muted">5:00</span></td><td></td><td></td><td><input type="checkbox" class="up" aria-label="Final Pitch counts up after 0:00"></td></tr>
+            <tr data-timer="qa"><td>Q&amp;A <span class="muted">5:00</span></td><td></td><td></td><td><input type="checkbox" class="up" aria-label="Q&amp;A counts up after 0:00"></td></tr>
           </tbody>
         </table>
         <div class="row"><button class="primary" type="submit">Save timer tones</button><span class="muted" id="toneSaved"></span></div>
@@ -577,13 +577,14 @@ $csrf = s48_csrf_token();
         tr.querySelector('.at[data-tone="' + tone + '"]').value = mmss(v.at);
         tr.classList.toggle('off-' + tone, !v.on);
       });
+      tr.querySelector('.up').checked = ((t[tr.getAttribute('data-timer')] || {}).count_up) !== false;
     });
   }
   $('toneForm').onsubmit = function (e) {
     e.preventDefault();
     var timers = {}, bad = null;
     document.querySelectorAll('#toneForm tr[data-timer]').forEach(function (tr) {
-      var k = tr.getAttribute('data-timer'); timers[k] = {};
+      var k = tr.getAttribute('data-timer'); timers[k] = { count_up: tr.querySelector('.up').checked };
       TONES.forEach(function (tone) {
         var at = parseMmss(tr.querySelector('.at[data-tone="' + tone + '"]').value);
         if (isNaN(at) && !bad) { bad = tr.children[0].firstChild.textContent.trim() + ': enter the ' + tone + ' time as m:ss'; }

@@ -34,9 +34,9 @@ License, Ubuntu under the Ubuntu Font Licence), so nothing loads from a CDN on v
 
 ## Pitch timer
 
-Open `timer/`. Presets: **1** Opening Pitch 1:00 (tones at 0:20, 0:10), **2** Final Pitch 5:00 (1:00, 0:20),
+Open `timer/`. Presets: **1** Opening Pitch 1:00 (tones at 0:20, 0:10), **2** Final Pitch 5:00 (1:00, 0:30),
 **3** Q&A 5:00 (1:00, 0:30). Presets can't be switched while the timer runs; pause first.
-Tone times (shown above as defaults) are set per timer in the operator console under **Pitch timer tones**: Warning and Danger can each be moved or switched off.
+Tone times (shown above as defaults) are set per timer in the operator console under **Pitch timer tones**: Warning and Danger can each be moved or switched off, and counting up after 0:00 can be turned off (the clock then holds at 0:00, flashing red).
 Open timers check for changes every 30 s and apply them the next time a timer is chosen or reset, never mid-countdown. The last settings are kept in the browser for offline use, and they're part of the event file.
 Any other length can be opened by link, e.g. `timer/?d=180&w=60,30&label=Demo` (seconds).
 The gear button shows or hides the options row: sound on/off, volume, end sound, test sounds, fullscreen and hide. Each laptop remembers whether the row is open.

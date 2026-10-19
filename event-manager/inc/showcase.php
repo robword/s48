@@ -12,10 +12,10 @@ const S48_GROUPS = ['organizers', 'judges', 'mentors'];
 const S48_MAX_PEOPLE = 60;
 const S48_MAX_PHOTO_BYTES = 1500000;
 // The pitch timer's presets: length in seconds, and when the Warning and Danger tones sound by default
-// (seconds left). Keep in step with PRESETS in timer/index.html.
+// (seconds left). Each can also count up past 0:00 (on by default). Keep in step with PRESETS in timer/index.html.
 const S48_TIMERS = [
     'opening' => ['label' => 'Opening Pitch', 'duration' => 60, 'warning' => 20, 'danger' => 10],
-    'final' => ['label' => 'Final Pitch', 'duration' => 300, 'warning' => 60, 'danger' => 20],
+    'final' => ['label' => 'Final Pitch', 'duration' => 300, 'warning' => 60, 'danger' => 30],
     'qa' => ['label' => 'Q&A', 'duration' => 300, 'warning' => 60, 'danger' => 30],
 ];
 
@@ -42,12 +42,12 @@ function s48_default_timers(): array
 {
     $t = [];
     foreach (S48_TIMERS as $k => $d) {
-        $t[$k] = ['warning' => ['on' => true, 'at' => $d['warning']], 'danger' => ['on' => true, 'at' => $d['danger']]];
+        $t[$k] = ['warning' => ['on' => true, 'at' => $d['warning']], 'danger' => ['on' => true, 'at' => $d['danger']], 'count_up' => true];
     }
     return $t;
 }
 
-/** Validates tone settings for each timer: on/off plus seconds left, inside the timer, Danger after Warning. */
+/** Validates each timer's settings: tones on/off plus seconds left (inside the timer, Danger after Warning), and count-up. */
 function s48_timer_fields($in, array $cur): array
 {
     if (!is_array($in)) {
@@ -63,6 +63,7 @@ function s48_timer_fields($in, array $cur): array
             }
             $out[$k][$tone] = ['on' => !empty($t['on']), 'at' => $at];
         }
+        $out[$k]['count_up'] = (bool) ($in[$k]['count_up'] ?? $cur[$k]['count_up'] ?? true);
         if ($out[$k]['warning']['on'] && $out[$k]['danger']['on'] && $out[$k]['danger']['at'] >= $out[$k]['warning']['at']) {
             throw new S48Error($d['label'] . ': Danger must come after Warning (less time left)');
         }
