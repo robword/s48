@@ -43,8 +43,6 @@ $csrf = s48_csrf_token();
   .top .s48-wordmark { font-size: 22px; }
   .top .spacer { flex: 1; }
   .pill { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; background: var(--s48-surface-2); }
-  .pill.open { background: var(--s48-good); color: #062; }
-  .pill.closed { background: var(--s48-bad); color: #400; }
   .pill.teams { background: var(--s48-accent-2); color: #042; }
   main { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 20px; padding: 20px; }
   @media (max-width: 860px) {
@@ -81,6 +79,7 @@ $csrf = s48_csrf_token();
   .stat.teamfit.bad { border-color: var(--s48-bad); background: rgba(255, 90, 90, .14); }
   .stat.teamfit.bad .v { color: var(--s48-bad); }
   /* Team selection: phase controls and the balance view */
+  .phasebox[hidden], #rosterLink[hidden] { display: none; }
   .phasebox { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .phasebox .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; min-width: 4ch; }
   .phasebox .clock.up { color: var(--s48-bad); animation: blink 1s steps(2) infinite; }
@@ -89,6 +88,7 @@ $csrf = s48_csrf_token();
   .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .tm { background: var(--s48-bg); border-radius: 12px; padding: 12px; border: 2px solid var(--s48-good); }
   .tm.under { border-color: var(--s48-bad); }
+  .tm.explore { border-color: var(--s48-line); }
   .tm.over { border-color: #e8a33d; }
   .tm h3 { margin: 0 0 4px; font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
   .tm h3 .st { font-family: var(--s48-font-display); color: var(--s48-accent-ink); }
@@ -132,6 +132,14 @@ $csrf = s48_csrf_token();
   summary { cursor: pointer; color: var(--s48-muted); }
   /* Event showcase (Meet the ... slide loop) */
   .sc-wrap { padding: 0 20px 28px; }
+  /* Collapsible page sections */
+  details.sect > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 16px 20px 4px; user-select: none; }
+  details.sect > summary::-webkit-details-marker { display: none; }
+  details.sect > summary .ttl { font-family: var(--s48-font-heading); font-weight: 700; font-size: 20px; letter-spacing: .06em; text-transform: uppercase; color: var(--s48-text); }
+  details.sect > summary .ttl::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--s48-accent-ink); transition: transform .15s; }
+  details.sect[open] > summary .ttl::before { transform: rotate(90deg); }
+  details.sect + details.sect { border-top: 1px solid var(--s48-line); }
+  .sc-wrap > .sc-info:first-child { margin-top: 8px; }
   .sc-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 6px 0 12px; }
   .sc-head h2 { margin: 0; }
   .sc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
@@ -193,7 +201,6 @@ $csrf = s48_csrf_token();
   <div class="top">
     <div class="s48-wordmark">startup<span>48</span></div>
     <strong>Operator</strong>
-    <span class="pill" id="statusPill">…</span>
     <span class="spacer"></span>
     <a href="../slides/#vote" target="_blank">Slides (QR)</a>
     <a href="../vote/" target="_blank" id="voteLink">Voting page</a>
@@ -206,6 +213,8 @@ $csrf = s48_csrf_token();
     </form>
   </div>
 
+  <details class="sect" id="secPitches" open>
+  <summary><span class="ttl">Opening Night Pitches &amp; Team Selection</span></summary>
   <main>
     <section>
       <h2>Opening pitches (<span id="pitchCount">0</span>)</h2>
@@ -252,7 +261,7 @@ $csrf = s48_csrf_token();
           <h2>Teams</h2>
           <span class="muted" id="boardPicked"></span>
           <span class="spacer" style="flex:1"></span>
-          <a href="../api/rosters.php" download>Download rosters (CSV)</a>
+          <a href="../api/rosters.php" download id="rosterLink">Download rosters (CSV)</a>
         </div>
         <div class="board" id="board"></div>
       </div>
@@ -271,10 +280,12 @@ $csrf = s48_csrf_token();
       </details>
     </section>
   </main>
+  </details>
+  <details class="sect" id="secShowcase" open>
+  <summary><span class="ttl">Event Showcase</span></summary>
   <div class="sc-wrap" id="showcase">
     <div class="sc-head">
-      <h2>Event showcase</h2>
-      <span class="muted">People and info for the "Meet the…" slide loop. Changes appear on the next loop.</span>
+      <span class="muted">Organizers, judges and mentors for the "Meet the…" slide loop.</span>
       <a href="../showcase/" target="_blank">Open showcase slides</a>
     </div>
     <div class="sc-grid">
@@ -291,7 +302,11 @@ $csrf = s48_csrf_token();
         <ol class="people"></ol>
       </section>
     </div>
-
+  </div>
+  </details>
+  <details class="sect" id="secSettings" open>
+  <summary><span class="ttl">Event Info &amp; Settings</span></summary>
+  <div class="sc-wrap">
     <section class="sc-info">
       <h2>Event info</h2>
       <form id="infoForm" class="info-grid">
@@ -462,8 +477,6 @@ $csrf = s48_csrf_token();
   function render() {
     var st = data.status, r = data.results;
     document.body.setAttribute('data-status', st);
-    $('statusPill').textContent = st === 'setup' ? 'Not started' : st === 'teams' ? 'Team selection' : st;
-    $('statusPill').className = 'pill ' + st;
     $('btnStart').style.display = st === 'setup' ? '' : 'none';
     $('btnClose').style.display = st === 'open' ? '' : 'none';
     $('btnReopen').style.display = st === 'closed' ? '' : 'none';
@@ -541,18 +554,21 @@ $csrf = s48_csrf_token();
     $('btnPhaseBack').style.display = i > 0 ? '' : 'none';
     $('btnPhaseBack').textContent = i > 0 ? 'Back to ' + PHASE_LABEL[PHASES[i - 1]] : '';
     tickPhase();
-    var f = b.fit;
-    $('boardPicked').textContent = b.picked + (f.participants ? ' of ' + f.participants : '') + ' picked a team · ideal ' + f.min + '–' + f.max + ' per team';
+    var f = b.fit, exploring = b.phase === 'explore';
+    // While exploring nobody can pick yet: no counts, tags or rosters, just the stations.
+    $('rosterLink').hidden = exploring;
+    $('boardPicked').textContent = exploring ? b.teams.length + ' teams · picking opens in Choose' : b.picked + (f.participants ? ' of ' + f.participants : '') + ' picked a team · ideal ' + f.min + '–' + f.max + ' per team';
     // Rebuild the cards only when something changed, so an open move menu isn't reset every poll.
-    var key = JSON.stringify(b.teams);
+    var key = JSON.stringify([b.phase, b.teams]);
     if (key === boardKey || (document.activeElement && document.activeElement.tagName === 'SELECT' && $('board').contains(document.activeElement))) { return; }
     boardKey = key;
     var box = $('board');
     box.innerHTML = '';
     b.teams.forEach(function (t) {
-      var card = el('div', 'tm ' + t.fit), h = el('h3');
+      var card = el('div', 'tm ' + (exploring ? 'explore' : t.fit)), h = el('h3');
       h.appendChild(el('span', 'st', '#' + t.station)); h.appendChild(el('span', '', t.name));
       card.appendChild(h);
+      if (exploring) { box.appendChild(card); return; }
       var cnt = el('div', 'cnt'); cnt.appendChild(el('b', '', t.count)); cnt.appendChild(document.createTextNode(t.fit === 'under' ? ' · needs people' : t.fit === 'over' ? ' · over ' + f.max : ' · good'));
       card.appendChild(cnt);
       card.appendChild(el('div', 'skills', Object.keys(SKILL).filter(function (k) { return t.skills[k]; }).map(function (k) { return SKILL[k] + ' ' + t.skills[k]; }).join(' · ') || 'No picks yet'));
@@ -603,6 +619,12 @@ $csrf = s48_csrf_token();
     }
     $('sTeamNote').textContent = note;
   }
+
+  // Sections start open; each browser remembers the ones collapsed.
+  document.querySelectorAll('details.sect').forEach(function (d) {
+    try { if (localStorage.getItem('s48sect.' + d.id) === '0') { d.open = false; } } catch (e) { }
+    d.addEventListener('toggle', function () { try { localStorage.setItem('s48sect.' + d.id, d.open ? '1' : '0'); } catch (e) { } });
+  });
 
   function poll() {
     S48.api('GET', '../api/admin.php', null, function (err, res) {
