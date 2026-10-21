@@ -1,8 +1,9 @@
-# startup48 event tools
+# Event Manager
 
-Lightweight tools for the startup48 weekend: a pitch timer, the opening-night slide deck,
-and live audience voting. Plain PHP 8.1+ and static HTML/JS: no database, no build step,
-no CDN. Runs on DreamHost (or any Apache + PHP host).
+Lightweight tools for an in-person startup weekend, built for Startup 48: a pitch timer, the opening-night
+slide deck, live audience voting and team selection. Plain PHP 8.1+ and static HTML/JS: no database,
+no build step, no CDN. Runs on any Apache + PHP host (developed on DreamHost shared hosting).
+The code is MIT-licensed; Startup 48's branding is not (see `../NOTICE.md`).
 
 | Path | What it is |
 |---|---|
@@ -171,42 +172,47 @@ Picks are stored like ballots: one file per phone in `data/rounds/<round>/picks/
 
 Tested locally with 60 simultaneous voters plus 10 page-only visits: every ballot was saved and counted.
 
-## Deploying to DreamHost
+## Deploying
 
-Dev target: **https://slop.brynelsen.com/s48/**, deployed by GitHub Actions
-(`.github/workflows/deploy-s48.yml`). A push to `main` that touches `s48/` rsyncs this folder
-over SSH, then checks that the live `version.json` matches the commit and that protected paths
-return 403/404. You can also run it manually from the Actions tab, with a dry-run option.
+**Requirements:** Apache with `mod_rewrite` and `mod_headers` and `AllowOverride All` (the `.htaccess` files block
+`data/`, `inc/` and `bin/` and force HTTPS), PHP 8.1+ (the GD extension is recommended, it re-encodes headshots and drops
+their metadata), and HTTPS on the domain.
 
-The deploy key is locked by `rrsync` to `/home/<user>/slop.brynelsen.com/s48`. It can only
-rsync into that folder: no shell access, and no access to the rest of the site.
-`--delete` keeps the folder an exact copy of `s48/`, **except** `data/` (live votes and the
-password hash) and `inc/config.php`, which exist only on the server and are never uploaded or deleted.
-
-One-time setup:
-
-1. In the DreamHost panel, create a **shell** (SSH) user that owns `slop.brynelsen.com`.
-   Make sure PHP 8.1+ is selected and HTTPS (Let's Encrypt) is on for the domain.
-2. On your laptop, run the setup script `dh-deploy-setup.sh` (kept outside the repo; it needs
-   `gh`, `ssh` and `rsync`). It creates the deploy key, installs it on the server and stores
-   the repo secrets and the `SITE_URL` variable. Re-run it to rotate the key, or after DreamHost moves
-   the account to a new server (deploys then fail with "host identification has changed").
-3. Merge to `main` (or run the workflow manually) to deploy.
-4. Log in with the shell user's password and do the server-only steps once:
+1. Copy the contents of this folder to the web root (or a subfolder) of the host.
+2. On the server, once:
    ```sh
-   cd ~/slop.brynelsen.com/s48
    cp inc/config.sample.php inc/config.php   # then edit it:
-   #   'public_base_url' => 'https://slop.brynelsen.com/s48/',
-   #   'data_dir'        => '/home/USERNAME/s48-data',   (outside the web root)
+   #   'public_base_url' => 'https://events.example.com/',   (so QR codes never depend on the Host header)
+   #   'data_dir'        => '/home/USERNAME/event-data',     (outside the web root)
    php bin/set-password.php
    ```
-5. Rehearse: add a test pitch, start voting, vote from a phone on cellular data, then **Reset**.
+3. Rehearse: add a test pitch, start voting, vote from a phone on cellular data, then **Reset**.
 
-Local development:
+`data/` (live votes, picks, headshots and the operator password hash) and `inc/config.php` exist only on the server.
+Keep them out of whatever you upload, and never delete them on deploy.
+
+### Automated deploys (optional)
+
+`.github/workflows/deploy.yml` rsyncs this folder over SSH, then checks that the live `version.json` matches the commit and
+that protected paths return 403/404. It is **manual only** (Actions tab, with a dry-run option) until you configure it; to deploy
+on every push to `main`, add a `push` trigger as noted in the file.
+
+Repository settings it expects: secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`
+(the server's host key, so the job never trusts an unknown host), and the variable `SITE_URL` (e.g. `https://events.example.com`).
+
+The deploy key should be locked to one folder, so a leaked key can only rsync there. On hosts with `rrsync` (for example DreamHost
+shared hosting) install it in `authorized_keys` as
+`command="rrsync /home/USER/events.example.com",restrict ssh-ed25519 AAAA...`, with a `.deploy-target` marker file in that folder.
+`--delete` keeps the folder an exact copy of this one, **except** `data/` and `inc/config.php`.
+Protect `main` (require review) and limit the secrets to an environment: whoever can merge to `main` can deploy.
+
+## Local development
+
+From the repository root:
 
 ```sh
-php s48/bin/set-password.php 'devpassword'
-php -S localhost:8048 -t s48 s48/bin/dev-router.php
+php event-manager/bin/set-password.php 'devpassword'
+php -S localhost:8048 -t event-manager event-manager/bin/dev-router.php
 # http://localhost:8048/admin/
 ```
 

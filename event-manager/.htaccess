@@ -1,4 +1,4 @@
-# startup48 tools - Apache (DreamHost) settings
+# Event Manager - Apache settings (needs mod_rewrite, mod_headers and AllowOverride All)
 Options -Indexes
 DirectoryIndex index.php index.html
 

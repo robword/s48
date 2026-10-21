@@ -1,12 +1,12 @@
 <?php
 // Copy to config.php (git-ignored) and adjust. Every key is optional.
 return [
-    // Absolute URL of the s48 folder. Set this in production so the QR code
+    // Absolute URL of the app's folder. Set this in production so the QR code
     // never depends on the incoming Host header.
-    'public_base_url' => '',          // e.g. 'https://slop.brynelsen.com/s48/'
+    'public_base_url' => '',          // e.g. 'https://events.example.com/'
 
     // Where ballots/state live. Move OUTSIDE the web root in production.
-    // 'data_dir' => '/home/USERNAME/s48-data',
+    // 'data_dir' => '/home/USERNAME/event-data',
 
     // How long a voter's device token cookie lasts.
     'voter_cookie_days' => 7,
