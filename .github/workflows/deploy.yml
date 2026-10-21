@@ -21,6 +21,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Secrets live in this environment, limited to main by the setup script, so no other branch can read them.
+    environment: production
     env:
       HOST: ${{ secrets.DEPLOY_HOST }}
       USER_: ${{ secrets.DEPLOY_USER }}
