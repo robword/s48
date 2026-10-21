@@ -1,0 +1,33 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to a commit SHA, not a tag. Dependabot keeps it current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: PHP syntax check
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq php-cli php-gd
+          php -v | head -1
+          find event-manager -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+          echo "all PHP files parse"
+
+      - name: Nothing server-only is tracked
+        run: |
+          if git ls-files | grep -E '^event-manager/(data/|inc/config\.php$)'; then
+            echo "::error::server-only files are tracked"; exit 1
+          fi
+
+      - name: No secrets
+        run: |
+          grep -rniE 'ghp_[A-Za-z0-9]{20,}|github_pat_|BEGIN [A-Z ]*PRIVATE KEY' . --exclude-dir=.git --exclude-dir=.github \
+            && { echo "::error::possible secret"; exit 1; } || echo clean

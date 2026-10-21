@@ -1,0 +1,113 @@
+name: Deploy
+# Manual until the repository secrets below exist. To deploy on every push to main, add:
+#   push:
+#     branches: [main]
+#     paths: ['event-manager/**', '.github/workflows/deploy.yml']
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run: { description: 'Show changes without transferring', type: boolean, default: false }
+
+permissions:
+  contents: read              # the job needs nothing more from GITHUB_TOKEN
+
+concurrency:
+  group: deploy           # never two rsyncs at once
+  cancel-in-progress: false
+
+env:
+  SITE_URL: ${{ vars.SITE_URL }}  # repository variable, e.g. https://events.example.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      USER_: ${{ secrets.DEPLOY_USER }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+    steps:
+      # Pinned to a commit SHA, not a tag. Dependabot keeps it current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          mkdir -p _site && cp -r event-manager/. _site/
+          rm -f _site/README.md _site/.gitignore
+          # Runtime-only paths: never ship them (they are also excluded from --delete below).
+          rm -rf _site/data _site/inc/config.php
+
+          SHA="$(git rev-parse --short HEAD)"
+          BUILT="$(date -u +%Y-%m-%dT%H:%MZ)"
+
+          # Machine-readable manifest -- this is what makes verification possible.
+          printf '{"version":"%s","built":"%s","repository":"%s"}\n' \
+            "$SHA" "$BUILT" "$GITHUB_REPOSITORY" > _site/version.json
+
+          # Ship the marker so --delete never removes it.
+          echo "Managed by deploy.yml" > _site/.deploy-target
+
+      - name: Refuse to publish secrets
+        run: |
+          grep -rniE 'ghp_[A-Za-z0-9]{20,}|github_pat_|BEGIN [A-Z ]*PRIVATE KEY' _site \
+            && { echo "possible secret"; exit 1; } || echo clean
+
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KNOWN:-}" ]; then
+            echo "::error::DEPLOY_KNOWN_HOSTS is not set. Refusing to trust an unknown host key."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key      # printf adds the newline a paste may lack
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          echo "RSH=ssh -i $HOME/.ssh/deploy_key -p ${PORT:-22} -o IdentitiesOnly=yes -o BatchMode=yes" >> "$GITHUB_ENV"
+
+      - name: Guard
+        run: |
+          # The key only allows rsync, so the marker check goes through rsync too.
+          rsync --list-only -e "$RSH" "${USER_}@${HOST}:.deploy-target" > /dev/null \
+            || { echo "::error::No .deploy-target at the key's restricted root. Nothing changed."; exit 1; }
+
+      - name: Deploy
+        env:
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          FLAGS="-rlvz --delete --checksum --omit-dir-times --no-perms --no-owner --no-group"
+          # Live votes, the operator password hash and server-side config exist only on
+          # the server. Excluded paths are neither uploaded nor deleted by --delete.
+          FLAGS="$FLAGS --exclude=/data/ --exclude=/inc/config.php"
+          [ "${DRY:-false}" = "true" ] && FLAGS="$FLAGS --dry-run"
+          # ./ is the site root: rrsync maps remote paths onto its restricted root.
+          rsync $FLAGS -e "$RSH" _site/ "${USER_}@${HOST}:./"
+
+      - name: Verify
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          sleep 3
+          EXPECTED="$(git rev-parse --short HEAD)"
+          # Cache-buster so a cached version.json can't cause a false failure.
+          LIVE="$(curl -fsSL -H 'Cache-Control: no-cache' \
+            "${SITE_URL}/version.json?t=${GITHUB_RUN_ID}" | jq -r .version)"
+          [ "$LIVE" = "$EXPECTED" ] \
+            || { echo "::error::live is $LIVE, expected $EXPECTED"; exit 1; }
+
+      - name: Verify protected paths
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          # These must never be web-readable (see event-manager/.htaccess). 403 or 404 is fine.
+          FAIL=0
+          for p in data/ data/admin.json data/state.json inc/ inc/bootstrap.php bin/set-password.php .deploy-target; do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "${SITE_URL}/${p}")"
+            echo "${p} -> ${CODE}"
+            case "$CODE" in 403|404) ;; *) echo "::error::${SITE_URL}/${p} returned ${CODE}"; FAIL=1 ;; esac
+          done
+          exit "$FAIL"
