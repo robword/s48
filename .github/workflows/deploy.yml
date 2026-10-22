@@ -15,19 +15,32 @@ concurrency:
   group: deploy           # never two rsyncs at once
   cancel-in-progress: false
 
-env:
-  SITE_URL: ${{ vars.SITE_URL }}  # repository variable, e.g. https://events.example.com
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     # Secrets live in this environment, limited to main by the setup script, so no other branch can read them.
     environment: production
     env:
+      # Read here, not at the top of the file, so a repository variable and an environment variable both work.
+      SITE_URL: ${{ vars.SITE_URL }}  # e.g. https://events.example.com
       HOST: ${{ secrets.DEPLOY_HOST }}
       USER_: ${{ secrets.DEPLOY_USER }}
       PORT: ${{ secrets.DEPLOY_PORT }}
     steps:
+      # Fail before uploading anything if the setup is incomplete.
+      - name: Check configuration
+        run: |
+          missing=""
+          [ -n "$HOST" ]  || missing="$missing secret:DEPLOY_HOST"
+          [ -n "$USER_" ] || missing="$missing secret:DEPLOY_USER"
+          [ -n "$SITE_URL" ] || missing="$missing variable:SITE_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set:$missing. Secrets go in Settings > Environments > production; SITE_URL is a variable (Settings > Secrets and variables > Actions > Variables), e.g. https://events.example.com"
+            exit 1
+          fi
+          case "$SITE_URL" in https://*) ;; *) echo "::error::SITE_URL must start with https://"; exit 1 ;; esac
+          echo "configuration present"
+
       # Pinned to a commit SHA, not a tag. Dependabot keeps it current.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

@@ -198,7 +198,7 @@ that protected paths return 403/404. It is **manual only** (Actions tab, with a 
 on every push to `main`, add a `push` trigger as noted in the file.
 
 Repository settings it expects: secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`
-(the server's host key, so the job never trusts an unknown host), and the variable `SITE_URL` (e.g. `https://events.example.com`).
+(the server's host key, so the job never trusts an unknown host), and the variable `SITE_URL` (e.g. `https://events.example.com`; a repository or environment variable both work).
 
 The deploy key should be locked to one folder, so a leaked key can only rsync there. On hosts with `rrsync` (for example DreamHost
 shared hosting) install it in `authorized_keys` as
