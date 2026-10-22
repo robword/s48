@@ -81,14 +81,20 @@ $csrf = s48_csrf_token();
   /* Team selection: phase controls and the balance view */
   .phasebox[hidden], #rosterLink[hidden] { display: none; }
   /* Phase step bar: done steps dimmed, the current one highlighted */
-  .steps { display: inline-flex; list-style: none; margin: 0; padding: 0; border-radius: 999px; overflow: hidden; border: 1px solid var(--s48-line); }
-  .steps li { padding: 7px 14px; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--s48-muted); }
+  .steps { display: inline-flex; list-style: none; margin: 0; padding: 0; height: 32px; box-sizing: border-box; border-radius: 999px; overflow: hidden; border: 1px solid var(--s48-line); }
+  .steps li { display: flex; align-items: center; padding: 0 8px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--s48-muted); white-space: nowrap; }
   .steps li + li { border-left: 1px solid var(--s48-line); }
   .steps li.done { color: var(--s48-text); opacity: .6; }
   .steps li.on { background: var(--s48-accent-2); color: #042; }
-  .phasebox { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .phasebox .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 26px; font-variant-numeric: tabular-nums; min-width: 4ch; }
+  .phasebox { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .phasebox .clock { font-family: var(--s48-font-display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; min-width: 3.2ch; padding: 0 4px; }
+  /* Back / Next: pills the same height, size and lettering as the step bar */
+  .phasebox button.pill { height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12px; line-height: 1; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; display: inline-flex; align-items: center; }
+  .phasebox button.pill:not(.primary) { background: transparent; border: 1px solid var(--s48-line); color: var(--s48-text); }
+  .phasebox button.pill:not(.primary):hover:not(:disabled) { border-color: var(--s48-muted); }
   .phasebox .clock:empty { display: none; }
+  /* Narrow laptop windows: a little smaller so the step bar, clock and both buttons still share one row */
+  @media (max-width: 1340px) { .steps li { font-size: 11px; padding: 0 7px; letter-spacing: .02em; } .phasebox button.pill { font-size: 11px; padding: 0 10px; letter-spacing: .02em; } .phasebox .clock { font-size: 20px; } }
   .phasebox .clock.up { color: var(--s48-bad); animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
   .board-head { align-items: baseline; gap: 12px; }
@@ -245,8 +251,8 @@ $csrf = s48_csrf_token();
             <li>Pitches</li><li>Vote</li><li>Results</li><li>Explore</li><li>Choose</li><li>Finalize</li><li>Teams are set</li>
           </ol>
           <span class="clock" id="phaseClock"></span>
-          <button class="big" id="btnPhaseBack">◀ Back</button>
-          <button class="primary big" id="btnPhaseNext"></button>
+          <button class="pill" id="btnPhaseBack">◀ Back</button>
+          <button class="primary pill" id="btnPhaseNext"></button>
         </span>
         <span class="spacer" style="flex:1"></span>
         <span class="muted" id="updated"></span>
