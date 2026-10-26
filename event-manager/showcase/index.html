@@ -6,7 +6,7 @@
 <title>startup48 · Event Showcase</title>
 <!--
   Self-running event loop: Meet the Organizers, Wi-Fi, Meet the Judges, the weekend schedule,
-  Meet the Mentors, and an announcement. People and text come from the operator console
+  Meet the Mentors, Thank you to our sponsors, and an announcement. People and text come from the operator console
   (api/showcase.php) and are re-read at the start of every loop. Empty slides are skipped.
   Keys: → next slide · Space pause/resume · F fullscreen
 -->
@@ -67,6 +67,9 @@
   .until .now { font-family: var(--s48-font-display); font-weight: 700; font-size: 84px; margin-top: 30px; }
   .c-orange { background: var(--s48-orange); } .c-teal { background: var(--s48-teal); } .c-slate { background: var(--s48-slate); }
 
+  /* Sponsor logos (card styles are in theme.css), tiers grouped, shrunk to fit. */
+  .spon { position: absolute; left: 140px; right: 140px; top: 270px; height: 720px; display: flex; align-items: center; justify-content: center; }
+
   #paused { position: absolute; right: 140px; bottom: 50px; font-size: 24px; color: var(--s48-muted); display: none; z-index: 10; }
   body.paused #paused { display: block; }
   @media (prefers-reduced-motion: reduce) { .face, .slide, .cap { transition-duration: .01s; } }
@@ -75,6 +78,7 @@
 <body>
 <div id="stage"><div id="paused">Paused · Space to resume</div></div>
 
+<script src="../assets/common.js"></script>
 <script>
 (function () {
   var stage = document.getElementById('stage');
@@ -257,6 +261,20 @@
     swapIn(s);
     try { await wait(15000, myRun); } finally { if (until) { clearInterval(until.timer); } }
   }
+  // Thank-you slide: logos grouped by tier. More than SPONSORS_PER_PAGE logos split over several
+  // pages, each shown for twice the per-person seconds (at least 8 s).
+  var SPONSORS_PER_PAGE = 12;
+  async function sponsorsSlide(myRun) {
+    var pages = S48.sponsorPages(data.sponsors, SPONSORS_PER_PAGE), secs = Math.max(8, 2 * (data.info.seconds || 5));
+    for (var p = 0; p < pages.length; p++) {
+      var s = frame('Thank you', 'to our sponsors'), wrap = el('div', 'spon'), box = el('div');
+      box.style.width = '100%'; wrap.appendChild(box); s.appendChild(wrap);
+      swapIn(s);
+      S48.renderSponsors(box, pages[p]);
+      await new Promise(function (r) { S48.fitSponsors(box, 720, r); });
+      await wait(secs * 1000, myRun);
+    }
+  }
   async function announceSlide(myRun) {
     var s = frame('', data.info.announce_title), c = el('div', 'center ann');
     c.appendChild(el('div', 'body', data.info.announce_body)); s.appendChild(c); swapIn(s); await wait(10000, myRun);
@@ -308,10 +326,11 @@
       var t = m.label ? m.label.replace(' mentors', ' Mentors') : 'Mentors';
       add('mentors', [t, m.list, i.mentor_hours], function (id, from) { return meetSlide('mentors', t, m.list, i.mentor_hours, id, from); });
     }
+    if (data.sponsors && data.sponsors.length) { add('sponsors', data.sponsors, sponsorsSlide); }
     if (i.announce_title && i.announce_body) { add('announce', [i.announce_title, i.announce_body], announceSlide); }
     return steps;
   }
-  var ORDER = ['empty', 'organizers', 'wifi', 'judges', 'schedule', 'mentors', 'announce'];
+  var ORDER = ['empty', 'organizers', 'wifi', 'judges', 'schedule', 'mentors', 'sponsors', 'announce'];
 
   // Re-read the data before every slide, then show the one after the last (or the same one again
   // when it was interrupted to redraw with new data).

@@ -11,9 +11,9 @@ The code is MIT-licensed; Startup 48's branding is not (see `../NOTICE.md`).
 | `slides/` | Opening-night deck, 16:9, scales to any screen; live voting QR slide |
 | `admin/` | Operator console: log pitches, start/close voting, live results |
 | `vote/` | Mobile voting page participants reach via the QR code |
-| `showcase/` | Self-running "Meet the Organizers / Judges / Mentors" loop with event-info slides (public) |
+| `showcase/` | Self-running "Meet the Organizers / Judges / Mentors" loop with event-info and sponsor slides (public) |
 | `judging/` | Judging form for final pitches (web version of `judging/judging-form.pdf`) |
-| `api/` | JSON endpoints (`status`, `ballot`, `admin`, `showcase`, `showcase-admin`, `photo`) |
+| `api/` | JSON endpoints (`status`, `ballot`, `admin`, `showcase`, `showcase-admin`, `photo`, `logo`) |
 | `inc/` | Shared PHP (not web-accessible) |
 | `bin/` | CLI scripts (not web-accessible) |
 | `data/` | Runtime storage, created automatically, git-ignored, not web-accessible |
@@ -98,17 +98,26 @@ operator clicks **Start voting**, then shows the QR code, the short link and a l
 - After a deploy it reloads itself at the next slide change (it watches `version.json`).
 - Keys: `→` skips to the next slide, `Space` pauses.
 
-**Storage:** everything lives in `data/showcase.json` (locked and written atomically like `state.json`) plus `data/photos/`.
+**Storage:** everything lives in `data/showcase.json` (locked and written atomically like `state.json`) plus `data/photos/` and `data/logos/`.
 Both are outside the deploy sync, so a deploy never deletes them.
 `showcase/` and `api/showcase.php` are public by design (the loop runs without a login), so don't enter anything there you wouldn't put on the screen.
+
+## Sponsors
+
+The **Sponsors** list under the people columns in the operator console takes a name, an optional **tier** and an optional logo, with add, edit, delete and move up/down like the people lists.
+
+- **Where they show:** the opening-night deck's *Our sponsors* slide (placeholders until you add some), a *Thank you to our sponsors* slide in the `showcase/` loop (skipped when there are none; more than 12 logos are split across several pages), and a small logo strip at the bottom of the voting page.
+- **Tiers:** sponsors are grouped by tier in the order each tier first appears in the list. The first tier gets the largest logos, the second medium, the rest small; sponsors with no tier come last with no heading. Reorder with the arrows. The logos shrink to fit however many there are (up to 40).
+- **Logos:** PNG, JPG or SVG, shown on a white card, so a white-on-transparent logo won't be visible. PNG/JPG are resized in the browser (longest side 800 px, transparency kept) and re-encoded by GD when available. SVGs (up to 200 KB) are parsed and refused if they hold scripts, event handlers, `<foreignObject>`, animation, a DOCTYPE or external references; they need the PHP `dom` extension. Logos are stored as `data/logos/<random id>.png|jpg|svg` and served by `api/logo.php`, with a locked-down content policy on SVGs. A sponsor with no logo shows its name on the card.
 
 ## Event file (save / load)
 
 The **Event file** section at the bottom of the operator console saves the whole setup as one JSON file (`startup48-event-<date>.json`):
-organizers, judges and mentors with their headshots (cropped JPEGs, base64), event info, and the opening-pitch list.
+organizers, judges and mentors with their headshots (cropped JPEGs, base64), sponsors with their logos (base64), event info, and the opening-pitch list.
 
 **Load event file…** replaces all of that in the current install (after a confirm prompt), for example to set up a fresh install or roll back.
-- Headshots upload one at a time, then a single request swaps everything over, so a failed load leaves the install unchanged.
+- Headshots and logos upload one at a time, then a single request swaps everything over, so a failed load leaves the install unchanged.
+- A file made before sponsors existed has no sponsors section; loading it leaves the current sponsors alone.
 - Loading starts a fresh voting round with the file's pitches. Old round files stay on disk, as with Reset.
 - Loading is refused while voting is open.
 
@@ -175,8 +184,8 @@ Tested locally with 60 simultaneous voters plus 10 page-only visits: every ballo
 ## Deploying
 
 **Requirements:** Apache with `mod_rewrite` and `mod_headers` and `AllowOverride All` (the `.htaccess` files block
-`data/`, `inc/` and `bin/` and force HTTPS), PHP 8.1+ (the GD extension is recommended, it re-encodes headshots and drops
-their metadata), and HTTPS on the domain.
+`data/`, `inc/` and `bin/` and force HTTPS), PHP 8.1+ (the GD extension is recommended, it re-encodes headshots and logos and drops
+their metadata; the `dom` extension is needed for SVG logos), and HTTPS on the domain.
 
 1. Copy the contents of this folder to the web root (or a subfolder) of the host.
 2. On the server, once:
@@ -240,6 +249,6 @@ This is a light-traffic mockup. Known gaps, roughly in priority order:
    random tokens). Adding email IDs later brings privacy obligations (retention, deletion, a notice to participants).
 9. **Results are visible only to the operator**, but anyone can see the participation counts via
    `api/status.php?counts=1` (by design, for the slide). Remove `counts` if that's sensitive.
-10. **Showcase is public.** `api/showcase.php` returns all names, titles, the Wi-Fi password and headshot URLs to anyone.
+10. **Showcase is public.** `api/showcase.php` returns all names, titles, sponsor names and logo URLs, the Wi-Fi password and headshot URLs to anyone.
     Fine for a slide that's on screen anyway; gate it behind a login if that changes.
 11. **The vendored QR library** (`assets/qrcode.js`, qrcode-generator 1.4.4, MIT) should be tracked for updates.

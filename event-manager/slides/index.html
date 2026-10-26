@@ -49,7 +49,9 @@
   .c-slate { background: var(--s48-slate); }
   .c-deep { background: var(--s48-deep); }
 
-  /* sponsors */
+  /* sponsors: placeholders until real sponsors are added in the operator console */
+  .sp-live { height: 640px; display: flex; align-items: center; justify-content: center; }
+  .sp-live[hidden] { display: none; }
   .logos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; }
   .logos div { height: 200px; border-radius: 16px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #8a8580; }
 
@@ -143,7 +145,8 @@
   <section class="slide" data-id="sponsors">
     <div class="kicker">Thank you</div>
     <h2>Our sponsors</h2>
-    <div class="logos">
+    <div class="sp-live" id="spLive" hidden><div id="spBox" style="width:100%"></div></div>
+    <div class="logos" id="spPlaceholder">
       <div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div>
       <div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div><div>Sponsor logo</div>
     </div>
@@ -291,6 +294,29 @@
       if (history.replaceState) { history.replaceState(null, '', '#' + id); } else { location.hash = id; }
     }
     schedulePoll(0);
+    if (slides[cur].getAttribute('data-id') === 'sponsors') { drawSponsors(true); }
+  }
+
+  /* ---------- sponsors slide: real logos from the operator console, placeholders until there are some ---------- */
+  var sponsors = [], sponsorKey = '', sponsorDrawn = null;
+  function drawSponsors(force) {
+    var live = document.getElementById('spLive'), ph = document.getElementById('spPlaceholder');
+    live.hidden = !sponsors.length; ph.style.display = sponsors.length ? 'none' : '';
+    if (!sponsors.length || (!force && sponsorDrawn === sponsorKey)) { sponsorDrawn = sponsorKey; return; }
+    if (slides[cur].getAttribute('data-id') !== 'sponsors') { sponsorDrawn = null; return; }   // needs to be on screen to measure
+    var box = document.getElementById('spBox');
+    S48.renderSponsors(box, sponsors);
+    S48.fitSponsors(box, 640);
+    sponsorDrawn = sponsorKey;
+  }
+  function loadSponsors() {
+    S48.api('GET', '../api/showcase.php', null, function (err, res) {
+      if (!err && res && res.sponsors) {
+        var key = JSON.stringify(res.sponsors);
+        if (key !== sponsorKey) { sponsors = res.sponsors; sponsorKey = key; drawSponsors(false); }
+      }
+      setTimeout(loadSponsors, 30000);
+    });
   }
 
   function fromHash() {
@@ -474,6 +500,7 @@
 
   fit();
   go(fromHash(), true);
+  loadSponsors();
 })();
 </script>
 </body>
