@@ -181,6 +181,7 @@ $csrf = s48_csrf_token();
   .logo-box { display: flex; flex-direction: column; gap: 8px; align-items: center; }
   #logoPreview { width: 240px; height: 130px; border-radius: 12px; background: #fff center / contain no-repeat; background-origin: content-box; padding: 14px; box-sizing: border-box; display: grid; place-items: center; color: #8a8580; font-size: 14px; text-align: center; }
   .logo-box .muted { text-align: center; }
+  #logoPreview.dark, .logo-thumb.dark { background-color: #0d1a24; color: #b9cfdb; }
   .sc-info { margin-top: 20px; }
   .info-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 16px; }
   @media (max-width: 1100px) { .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -307,7 +308,7 @@ $csrf = s48_csrf_token();
   <summary><span class="ttl">Event Showcase</span></summary>
   <div class="sc-wrap" id="showcase">
     <div class="sc-head">
-      <span class="muted">Organizers, judges and mentors for the "Meet the…" slide loop, and sponsors for the slides and voting page.</span>
+      <span class="muted">Organizers, judges and mentors for the "Meet the…" slide loop, and sponsors for the slides.</span>
       <a href="../showcase/" target="_blank">Open showcase slides</a>
     </div>
     <div class="sc-grid">
@@ -326,7 +327,7 @@ $csrf = s48_csrf_token();
     </div>
     <section class="sc-sponsors" id="sponsorsSec">
       <div class="row"><h2>Sponsors (<span class="count" id="spCount">0</span>)</h2><button class="primary" type="button" id="spAdd">Add</button></div>
-      <p class="muted hint">Logos show on the opening-night Our sponsors slide, the showcase loop and the voting page. Give sponsors a tier (like Gold) to group them: the first tier in the list gets the biggest logos. Sponsors without a tier come last.</p>
+      <p class="muted hint">Logos show on the opening-night Our sponsors slide and in the showcase loop. Give sponsors a tier (like Gold) to group them: the first tier in the list gets the biggest logos. Sponsors without a tier come last.</p>
       <ol class="people wide" id="spList"></ol>
     </section>
   </div>
@@ -423,14 +424,16 @@ $csrf = s48_csrf_token();
       <div class="logo-box">
         <div id="logoPreview" role="img" aria-label="Logo preview">No logo</div>
         <label class="btn" for="logoFile" style="cursor:pointer">Choose logo…</label>
-        <input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml,.svg" hidden>
-        <span class="muted">PNG, JPG or SVG. A transparent background is fine; it shows on a white card.</span>
+        <input type="file" id="logoFile" accept="image/png,image/jpeg" hidden>
+        <span class="muted">PNG or JPG. A transparent background is fine.</span>
         <button type="button" id="removeLogo">Remove logo</button>
       </div>
       <div class="fields">
         <label class="f">Name<input type="text" id="sp-name" maxlength="80" required></label>
         <label class="f">Tier (optional)<input type="text" id="sp-tier" maxlength="40" list="tierList" placeholder="e.g. Gold"></label>
         <datalist id="tierList"></datalist>
+        <label class="f check"><span><input type="checkbox" id="sp-dark"> Dark card <span class="muted">(for white or light logos)</span></span></label>
+        <span class="muted" id="darkNote"></span>
         <span class="muted">Without a logo, the name is shown on the card instead.</span>
       </div>
       <p class="err" id="spmErr"></p>
@@ -759,6 +762,19 @@ $csrf = s48_csrf_token();
     });
   }
 
+  // One list row: number, thumbnail, name (click to edit), move up/down and delete.
+  function entryRow(i, count, thumb, who, on) {
+    var li = el('li');
+    li.appendChild(el('span', 'n', (i + 1) + '.'));
+    li.appendChild(thumb);
+    who.title = 'Click to edit'; who.onclick = on.edit; li.appendChild(who);
+    var up = el('button', '', '↑'); up.type = 'button'; up.disabled = i === 0; up.title = 'Move up'; up.onclick = function () { on.move(-1); };
+    var dn = el('button', '', '↓'); dn.type = 'button'; dn.disabled = i === count - 1; dn.title = 'Move down'; dn.onclick = function () { on.move(1); };
+    var del = el('button', 'danger', '✕'); del.type = 'button'; del.title = 'Delete'; del.onclick = on.del;
+    li.appendChild(up); li.appendChild(dn); li.appendChild(del);
+    return li;
+  }
+
   function subtitle(g, p) {
     var days = g === 'mentors' || p.mentoring ? [p.sat ? 'Sat' : '', p.sun ? 'Sun' : ''].filter(Boolean).join('/') : '';
     if (g === 'organizers') { return [p.org, p.first_year ? 'since ' + p.first_year : '', p.mentoring ? 'Mentor' + (days ? ' ' + days : '') : ''].filter(Boolean).join(' · '); }
@@ -772,21 +788,15 @@ $csrf = s48_csrf_token();
       ol.innerHTML = '';
       if (!list.length) { var li0 = el('li'); li0.appendChild(el('span', 'empty-note', 'No ' + g + ' yet. Use Add.')); ol.appendChild(li0); }
       list.forEach(function (p, i) {
-        var li = el('li');
-        li.appendChild(el('span', 'n', (i + 1) + '.'));
         var th = el('span', 'thumb');
         if (p.photo_url) { th.style.backgroundImage = 'url("' + p.photo_url + '")'; } else { th.textContent = initials(p.name); }
-        li.appendChild(th);
-        var who = el('span', 'who'); who.title = 'Click to edit';
+        var who = el('span', 'who');
         who.appendChild(el('b', '', p.name)); who.appendChild(el('span', '', subtitle(g, p)));
-        who.onclick = function () { openEditor(g, p); };
-        li.appendChild(who);
-        var up = el('button', '', '↑'); up.type = 'button'; up.disabled = i === 0; up.title = 'Move up'; up.onclick = function () { api({ action: 'move', group: g, id: p.id, dir: -1 }); };
-        var dn = el('button', '', '↓'); dn.type = 'button'; dn.disabled = i === list.length - 1; dn.title = 'Move down'; dn.onclick = function () { api({ action: 'move', group: g, id: p.id, dir: 1 }); };
-        var del = el('button', 'danger', '✕'); del.type = 'button'; del.title = 'Delete';
-        del.onclick = function () { if (confirm('Delete ' + p.name + '?')) { api({ action: 'delete', group: g, id: p.id }); } };
-        li.appendChild(up); li.appendChild(dn); li.appendChild(del);
-        ol.appendChild(li);
+        ol.appendChild(entryRow(i, list.length, th, who, {
+          edit: function () { openEditor(g, p); },
+          move: function (dir) { api({ action: 'move', group: g, id: p.id, dir: dir }); },
+          del: function () { if (confirm('Delete ' + p.name + '?')) { api({ action: 'delete', group: g, id: p.id }); } }
+        }));
       });
       if (g === 'mentors') {
         var om = data.people.organizers.filter(function (p) { return p.mentoring; });
@@ -797,7 +807,7 @@ $csrf = s48_csrf_token();
         col.querySelector('.count').textContent = list.length + (om.length ? ' + ' + om.length : '');
       }
     });
-    renderSponsors();
+    renderSponsorList();
     if (!document.activeElement || !$('infoForm').contains(document.activeElement)) {
       for (var k in data.info) { if (data.info.hasOwnProperty(k) && $('i-' + k)) { $('i-' + k).value = data.info[k]; } }
     }
@@ -979,28 +989,22 @@ $csrf = s48_csrf_token();
   var spEdit = null;   // { sponsor|null }
   var logo = { url: null, data: null, removed: false };   // logo in the editor: stored url, new data URL, removed flag
 
-  function renderSponsors() {
+  function renderSponsorList() {
     var list = data.sponsors || [], ol = $('spList');
     $('spCount').textContent = list.length;
     ol.innerHTML = '';
     if (!list.length) { var li0 = el('li'); li0.appendChild(el('span', 'empty-note', 'No sponsors yet. Use Add.')); ol.appendChild(li0); }
     list.forEach(function (sp, i) {
-      var li = el('li');
-      li.appendChild(el('span', 'n', (i + 1) + '.'));
-      var th = el('span', 'logo-thumb');
+      var th = el('span', 'logo-thumb' + (sp.dark ? ' dark' : ''));
       if (sp.logo_url) { th.style.backgroundImage = 'url("' + sp.logo_url + '")'; } else { th.textContent = 'no logo'; }
-      li.appendChild(th);
-      var who = el('span', 'who'); who.title = 'Click to edit';
-      var nm = el('b', '', sp.name); if (sp.tier) { nm.appendChild(el('span', 'tier-tag', sp.tier)); }
+      var who = el('span', 'who'), nm = el('b', '', sp.name);
+      if (sp.tier) { nm.appendChild(el('span', 'tier-tag', sp.tier)); }
       who.appendChild(nm);
-      who.onclick = function () { openSponsor(sp); };
-      li.appendChild(who);
-      var up = el('button', '', '↑'); up.type = 'button'; up.disabled = i === 0; up.title = 'Move up'; up.onclick = function () { api({ action: 'sponsor_move', id: sp.id, dir: -1 }); };
-      var dn = el('button', '', '↓'); dn.type = 'button'; dn.disabled = i === list.length - 1; dn.title = 'Move down'; dn.onclick = function () { api({ action: 'sponsor_move', id: sp.id, dir: 1 }); };
-      var del = el('button', 'danger', '✕'); del.type = 'button'; del.title = 'Delete';
-      del.onclick = function () { if (confirm('Delete ' + sp.name + '?')) { api({ action: 'sponsor_delete', id: sp.id }); } };
-      li.appendChild(up); li.appendChild(dn); li.appendChild(del);
-      ol.appendChild(li);
+      ol.appendChild(entryRow(i, list.length, th, who, {
+        edit: function () { openSponsor(sp); },
+        move: function (dir) { api({ action: 'sponsor_move', id: sp.id, dir: dir }); },
+        del: function () { if (confirm('Delete ' + sp.name + '?')) { api({ action: 'sponsor_delete', id: sp.id }); } }
+      }));
     });
     var tiers = [], seen = {};
     list.forEach(function (sp) { if (sp.tier && !seen[sp.tier]) { seen[sp.tier] = 1; tiers.push(sp.tier); } });
@@ -1012,39 +1016,44 @@ $csrf = s48_csrf_token();
     var url = logo.data || (logo.removed ? null : logo.url), pv = $('logoPreview');
     pv.style.backgroundImage = url ? 'url("' + url + '")' : '';
     pv.textContent = url ? '' : 'No logo';
+    pv.classList.toggle('dark', $('sp-dark').checked);
   }
-  // PNG/JPG are resized here (longest side at most 800 px, transparency kept); SVG goes up as is
-  // and the server checks it. Anything else is converted to PNG.
-  var MAX_SVG = 200000, MAX_RASTER = 560000;
-  function setLogoFile(file) {
-    var err = $('spmErr'); err.textContent = '';
-    var isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
-    var rd = new FileReader();
-    if (isSvg) {
-      if (file.size > MAX_SVG) { err.textContent = 'That SVG is too large (limit ' + Math.round(MAX_SVG / 1000) + ' KB). Simplify or export it again.'; return; }
-      rd.onload = function () {
-        var d = rd.result;   // the browser's own type for .svg files can be empty
-        if (!/^data:image\/svg\+xml;base64,/.test(d)) { d = 'data:image/svg+xml;base64,' + d.slice(d.indexOf(',') + 1); }
-        logo.data = d; logo.removed = false; showLogo();
-      };
-      rd.readAsDataURL(file); return;
+  // True when the logo's visible pixels are nearly all white or very light, so it would vanish on
+  // a white card. Fully transparent pixels don't count.
+  function isLightLogo(canvas) {
+    var d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data, sum = 0, n = 0;
+    for (var i = 0; i < d.length; i += 16) {   // every 4th pixel is plenty
+      if (d[i + 3] < 64) { continue; }
+      sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++;
     }
-    if (!/^image\//.test(file.type)) { err.textContent = 'Choose a PNG, JPG or SVG image.'; return; }
+    return n > 0 && sum / n > 0.85;
+  }
+  // The logo is resized here (longest side at most 800 px, transparency kept for PNG) before it goes up.
+  var MAX_LOGO = 560000;
+  function setLogoFile(file) {
+    var err = $('spmErr'); err.textContent = ''; $('darkNote').textContent = '';
+    if (!/^image\/(png|jpeg)$/.test(file.type)) { err.textContent = 'Choose a PNG or JPG image.'; return; }
+    var rd = new FileReader();
     rd.onload = function () {
       var img = new Image();
-      img.onerror = function () { err.textContent = 'That image could not be opened. Use a PNG, JPG or SVG.'; };
+      img.onerror = function () { err.textContent = 'That image could not be opened. Use a PNG or JPG.'; };
       img.onload = function () {
-        var keepJpeg = file.type === 'image/jpeg', out = null;
+        var keepJpeg = file.type === 'image/jpeg', out = null, canvas = null;
         [800, 600, 400, 280].some(function (maxSide) {
           var k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
-          var c = document.createElement('canvas'); c.width = w; c.height = h;
-          var cx = c.getContext('2d');
+          canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+          var cx = canvas.getContext('2d');
           if (keepJpeg) { cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); }
           cx.drawImage(img, 0, 0, w, h);
-          out = c.toDataURL(keepJpeg ? 'image/jpeg' : 'image/png', 0.9);
-          return out.length * 0.75 <= MAX_RASTER;
+          out = canvas.toDataURL(keepJpeg ? 'image/jpeg' : 'image/png', 0.9);
+          return out.length * 0.75 <= MAX_LOGO;
         });
-        if (!out || out.length * 0.75 > MAX_RASTER) { err.textContent = 'That image is too large even after shrinking. Try a simpler logo.'; return; }
+        if (out.length * 0.75 > MAX_LOGO) { err.textContent = 'That image is too large even after shrinking. Try a simpler logo.'; return; }
+        var light = isLightLogo(canvas);
+        if (light !== $('sp-dark').checked) {
+          $('sp-dark').checked = light;
+          $('darkNote').textContent = light ? 'This logo looks light, so it’s set to a dark card.' : 'Switched back to a white card for this logo.';
+        }
         logo.data = out; logo.removed = false; showLogo();
       };
       img.src = rd.result;
@@ -1053,11 +1062,13 @@ $csrf = s48_csrf_token();
   }
   $('logoFile').onchange = function () { var f = this.files && this.files[0]; if (f) { setLogoFile(f); } this.value = ''; };
   $('removeLogo').onclick = function () { logo.data = null; logo.removed = true; showLogo(); };
+  $('sp-dark').onchange = function () { $('darkNote').textContent = ''; showLogo(); };
 
   function openSponsor(sp) {
     spEdit = { sponsor: sp };
     $('spmTitle').textContent = sp ? 'Edit sponsor' : 'Add sponsor';
     $('sp-name').value = sp ? sp.name : ''; $('sp-tier').value = sp ? sp.tier : '';
+    $('sp-dark').checked = !!(sp && sp.dark); $('darkNote').textContent = '';
     logo = { url: sp ? sp.logo_url : null, data: null, removed: false }; showLogo();
     $('spmDelete').style.display = sp ? '' : 'none';
     $('spmErr').textContent = '';
@@ -1075,7 +1086,7 @@ $csrf = s48_csrf_token();
   };
   $('sponsorForm').onsubmit = function (e) {
     e.preventDefault();
-    var fields = { name: $('sp-name').value, tier: $('sp-tier').value };
+    var fields = { name: $('sp-name').value, tier: $('sp-tier').value, dark: $('sp-dark').checked };
     var body = spEdit.sponsor ? { action: 'sponsor_update', id: spEdit.sponsor.id, fields: fields } : { action: 'sponsor_add', fields: fields };
     if (logo.data) { body.logo = logo.data; } else if (spEdit.sponsor && logo.removed) { body.remove_logo = true; }
     $('spmSave').disabled = true; $('spmErr').textContent = '';
@@ -1129,7 +1140,7 @@ $csrf = s48_csrf_token();
         }
         var body = { format: ev.format, version: ev.version, info: ev.info || {}, pitches: ev.pitches || [], people: {} };
         if (sponsorList) {
-          body.sponsors = sponsorList.map(function (sp) { var q = { name: sp.name, tier: sp.tier || '' }; if (sp.logo_ref) { q.logo_ref = sp.logo_ref; } return q; });
+          body.sponsors = sponsorList.map(function (sp) { var q = { name: sp.name, tier: sp.tier || '', dark: !!sp.dark }; if (sp.logo_ref) { q.logo_ref = sp.logo_ref; } return q; });
         }
         groups.forEach(function (g) {
           body.people[g] = (ev.people[g] || []).map(function (p) { var q = {}; for (var k in p) { if (k !== 'photo') { q[k] = p[k]; } } return q; });

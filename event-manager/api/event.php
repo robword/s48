@@ -96,18 +96,6 @@ function s48_require_not_voting(array $state): void
     }
 }
 
-/** Like s48_sweep_photos, for sponsor logos (any file type). */
-function s48_sweep_logos(array $keep): void
-{
-    $keep = array_flip($keep);
-    foreach (glob(s48_logo_dir() . '/*.*') ?: [] as $f) {
-        $id = pathinfo($f, PATHINFO_FILENAME);
-        if (!isset($keep[$id]) && filemtime($f) < time() - 600) {
-            @unlink($f);
-        }
-    }
-}
-
 function s48_sweep_photos(array $keep): void
 {
     $keep = array_flip($keep);
@@ -138,7 +126,7 @@ s48_api(static function () {
         }
         $sponsors = [];
         foreach ($s['sponsors'] as $sp) {
-            $row = ['name' => $sp['name'], 'tier' => $sp['tier'] ?? ''];
+            $row = ['name' => $sp['name'], 'tier' => $sp['tier'] ?? '', 'dark' => !empty($sp['dark'])];
             $logo = s48_logo_data_url($sp['logo'] ?? null);
             if ($logo !== null) {
                 $row['logo'] = $logo;
@@ -207,7 +195,7 @@ s48_api(static function () {
                 foreach (array_diff(array_filter($oldLogos), $logos) as $l) {
                     s48_delete_logo($l);
                 }
-                s48_sweep_logos($logos);
+                s48_sweep_files(s48_logo_dir(), $logos);
             }
             s48_json_out(['ok' => true, 'people' => array_sum(array_map('count', $show['people'])), 'pitches' => count($pitches), 'sponsors' => count($saved['sponsors'])]);
             return;

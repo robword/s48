@@ -14,24 +14,15 @@ function s48_group(array $body): string
     return $g;
 }
 
-function s48_find_person(array $list, string $id): int
+/** Index of the entry with this id in a list of people or sponsors. */
+function s48_find_entry(array $list, string $id, string $what = 'Person'): int
 {
     foreach ($list as $i => $p) {
         if ($p['id'] === $id) {
             return $i;
         }
     }
-    throw new S48Error('Person not found', 404);
-}
-
-function s48_find_sponsor(array $list, string $id): int
-{
-    foreach ($list as $i => $p) {
-        if ($p['id'] === $id) {
-            return $i;
-        }
-    }
-    throw new S48Error('Sponsor not found', 404);
+    throw new S48Error($what . ' not found', 404);
 }
 
 s48_api(static function () {
@@ -76,7 +67,7 @@ s48_api(static function () {
 
                 case 'update':
                     $g = s48_group($body);
-                    $i = s48_find_person($s['people'][$g], (string) ($body['id'] ?? ''));
+                    $i = s48_find_entry($s['people'][$g], (string) ($body['id'] ?? ''));
                     $cur = $s['people'][$g][$i];
                     $photo = $cur['photo'] ?? null;
                     if ($newPhoto !== null || !empty($body['remove_photo'])) {
@@ -88,14 +79,14 @@ s48_api(static function () {
 
                 case 'delete':
                     $g = s48_group($body);
-                    $i = s48_find_person($s['people'][$g], (string) ($body['id'] ?? ''));
+                    $i = s48_find_entry($s['people'][$g], (string) ($body['id'] ?? ''));
                     $oldPhotos[] = $s['people'][$g][$i]['photo'] ?? null;
                     array_splice($s['people'][$g], $i, 1);
                     break;
 
                 case 'move':
                     $g = s48_group($body);
-                    $i = s48_find_person($s['people'][$g], (string) ($body['id'] ?? ''));
+                    $i = s48_find_entry($s['people'][$g], (string) ($body['id'] ?? ''));
                     $j = $i + ((int) ($body['dir'] ?? 0) < 0 ? -1 : 1);
                     if ($j >= 0 && $j < count($s['people'][$g])) {
                         [$s['people'][$g][$i], $s['people'][$g][$j]] = [$s['people'][$g][$j], $s['people'][$g][$i]];
@@ -110,7 +101,7 @@ s48_api(static function () {
                     break;
 
                 case 'sponsor_update':
-                    $i = s48_find_sponsor($s['sponsors'], (string) ($body['id'] ?? ''));
+                    $i = s48_find_entry($s['sponsors'], (string) ($body['id'] ?? ''), 'Sponsor');
                     $cur = $s['sponsors'][$i];
                     $logo = $cur['logo'] ?? null;
                     if ($newLogo !== null || !empty($body['remove_logo'])) {
@@ -121,13 +112,13 @@ s48_api(static function () {
                     break;
 
                 case 'sponsor_delete':
-                    $i = s48_find_sponsor($s['sponsors'], (string) ($body['id'] ?? ''));
+                    $i = s48_find_entry($s['sponsors'], (string) ($body['id'] ?? ''), 'Sponsor');
                     $oldLogos[] = $s['sponsors'][$i]['logo'] ?? null;
                     array_splice($s['sponsors'], $i, 1);
                     break;
 
                 case 'sponsor_move':
-                    $i = s48_find_sponsor($s['sponsors'], (string) ($body['id'] ?? ''));
+                    $i = s48_find_entry($s['sponsors'], (string) ($body['id'] ?? ''), 'Sponsor');
                     $j = $i + ((int) ($body['dir'] ?? 0) < 0 ? -1 : 1);
                     if ($j >= 0 && $j < count($s['sponsors'])) {
                         [$s['sponsors'][$i], $s['sponsors'][$j]] = [$s['sponsors'][$j], $s['sponsors'][$i]];
@@ -153,6 +144,9 @@ s48_api(static function () {
     }
     foreach ($oldLogos as $l) {
         s48_delete_logo($l);
+    }
+    if (strncmp($action, 'sponsor_', 8) === 0) {
+        s48_sweep_files(s48_logo_dir(), s48_logo_ids($s));   // leftovers from a request that died part-way
     }
     s48_json_out(['ok' => true] + s48_public_showcase($s));
 });

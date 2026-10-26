@@ -267,11 +267,12 @@
   async function sponsorsSlide(myRun) {
     var pages = S48.sponsorPages(data.sponsors, SPONSORS_PER_PAGE), secs = Math.max(8, 2 * (data.info.seconds || 5));
     for (var p = 0; p < pages.length; p++) {
+      // Load this page's logos first so they're already sized when the slide fades in.
+      await preload(pages[p].filter(function (sp) { return sp.logo_url; }).map(function (sp) { return sp.logo_url; }));
       var s = frame('Thank you', 'to our sponsors'), wrap = el('div', 'spon'), box = el('div');
       box.style.width = '100%'; wrap.appendChild(box); s.appendChild(wrap);
       swapIn(s);
-      S48.renderSponsors(box, pages[p]);
-      await new Promise(function (r) { S48.fitSponsors(box, 720, r); });
+      await new Promise(function (r) { S48.showSponsors(box, pages[p], 720, r); });
       await wait(secs * 1000, myRun);
     }
   }

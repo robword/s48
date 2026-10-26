@@ -85,16 +85,17 @@ html { background: var(--s48-bg); }
 .s48-light .s48-wordmark::before { background-image: url("logo-mark.svg"); }
 .s48-wordmark span { color: inherit; }
 
-/* Sponsor logos: white cards so any logo reads on dark or light pages. Sizes per tier group
-   (data-size); --sp-scale shrinks them all to fit (see S48.fitSponsors in common.js). */
+/* Sponsor logos: white cards by default, dark cards for white or light logos. Sizes per tier
+   group (data-size); --sp-scale shrinks them all to fit (see S48.showSponsors in common.js). */
 .sp { --sp-scale: 1; display: flex; flex-direction: column; align-items: center; gap: calc(34px * var(--sp-scale)); width: 100%; }
 .sp-group { display: flex; flex-direction: column; align-items: center; gap: calc(16px * var(--sp-scale)); width: 100%; }
 .sp-group[data-size="l"] { --sp-h: 180px; --sp-w: 440px; }
 .sp-group[data-size="m"] { --sp-h: 128px; --sp-w: 340px; }
 .sp-group[data-size="s"] { --sp-h: 92px; --sp-w: 260px; }
-.sp-group[data-size="xs"] { --sp-h: 44px; --sp-w: 140px; }
 .sp-tier { font-family: var(--s48-font-heading); font-weight: 700; font-size: calc(28px * var(--sp-scale)); letter-spacing: .14em; text-transform: uppercase; color: var(--s48-accent-ink); }
 .sp-row { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(22px * var(--sp-scale)); }
 .sp-card { box-sizing: border-box; height: calc(var(--sp-h) * var(--sp-scale)); max-width: calc(var(--sp-w) * var(--sp-scale)); padding: calc(var(--sp-h) * var(--sp-scale) * .13) calc(var(--sp-h) * var(--sp-scale) * .2); border-radius: calc(var(--sp-h) * var(--sp-scale) * .1); background: #fff; display: flex; align-items: center; justify-content: center; }
 .sp-card img { display: block; height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+.sp-card.dark { background: #0d1a24; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .14); }
 .sp-card.txt { color: #1b2330; font-family: var(--s48-font-heading); font-weight: 700; font-size: calc(var(--sp-h) * var(--sp-scale) * .27); line-height: 1.1; text-align: center; overflow: hidden; }
+.sp-card.txt.dark { color: #fff; }

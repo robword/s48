@@ -106,9 +106,10 @@ Both are outside the deploy sync, so a deploy never deletes them.
 
 The **Sponsors** list under the people columns in the operator console takes a name, an optional **tier** and an optional logo, with add, edit, delete and move up/down like the people lists.
 
-- **Where they show:** the opening-night deck's *Our sponsors* slide (placeholders until you add some), a *Thank you to our sponsors* slide in the `showcase/` loop (skipped when there are none; more than 12 logos are split across several pages), and a small logo strip at the bottom of the voting page.
+- **Where they show:** the opening-night deck's *Our sponsors* slide (placeholders until you add some) and a *Thank you to our sponsors* slide in the `showcase/` loop (skipped when there are none; more than 12 logos are split across pages, each shown for twice the per-person seconds, at least 8 s).
 - **Tiers:** sponsors are grouped by tier in the order each tier first appears in the list. The first tier gets the largest logos, the second medium, the rest small; sponsors with no tier come last with no heading. Reorder with the arrows. The logos shrink to fit however many there are (up to 40).
-- **Logos:** PNG, JPG or SVG, shown on a white card, so a white-on-transparent logo won't be visible. PNG/JPG are resized in the browser (longest side 800 px, transparency kept) and re-encoded by GD when available. SVGs (up to 200 KB) are parsed and refused if they hold scripts, event handlers, `<foreignObject>`, animation, a DOCTYPE or external references; they need the PHP `dom` extension. Logos are stored as `data/logos/<random id>.png|jpg|svg` and served by `api/logo.php`, with a locked-down content policy on SVGs. A sponsor with no logo shows its name on the card.
+- **Logos:** PNG or JPG. The browser resizes them (longest side 800 px, PNG transparency kept), and the server checks them and re-encodes them with GD when available. They're stored as `data/logos/<random id>.png|jpg` and served by `api/logo.php`. A sponsor with no logo shows its name on the card.
+- **Card color:** logos sit on a white card, or a dark one when **Dark card** is ticked. The console ticks it for you when an uploaded logo is mostly white or very light; you can change it.
 
 ## Event file (save / load)
 
@@ -185,7 +186,7 @@ Tested locally with 60 simultaneous voters plus 10 page-only visits: every ballo
 
 **Requirements:** Apache with `mod_rewrite` and `mod_headers` and `AllowOverride All` (the `.htaccess` files block
 `data/`, `inc/` and `bin/` and force HTTPS), PHP 8.1+ (the GD extension is recommended, it re-encodes headshots and logos and drops
-their metadata; the `dom` extension is needed for SVG logos), and HTTPS on the domain.
+their metadata), and HTTPS on the domain.
 
 1. Copy the contents of this folder to the web root (or a subfolder) of the host.
 2. On the server, once:

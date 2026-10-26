@@ -304,9 +304,7 @@
     live.hidden = !sponsors.length; ph.style.display = sponsors.length ? 'none' : '';
     if (!sponsors.length || (!force && sponsorDrawn === sponsorKey)) { sponsorDrawn = sponsorKey; return; }
     if (slides[cur].getAttribute('data-id') !== 'sponsors') { sponsorDrawn = null; return; }   // needs to be on screen to measure
-    var box = document.getElementById('spBox');
-    S48.renderSponsors(box, sponsors);
-    S48.fitSponsors(box, 640);
+    S48.showSponsors(document.getElementById('spBox'), sponsors, 640);
     sponsorDrawn = sponsorKey;
   }
   function loadSponsors() {

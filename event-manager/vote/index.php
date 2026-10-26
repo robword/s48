@@ -71,10 +71,6 @@ try {
   .skills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .skills button { padding: 12px 4px; border-radius: 10px; border: 2px solid var(--s48-line); background: var(--s48-surface); color: var(--s48-text); font-size: 15px; font-weight: 700; }
   .skills button.on { border-color: var(--s48-accent); background: var(--s48-accent); color: var(--s48-on-accent); }
-  /* Sponsor strip under the page content (sits above the fixed bottom bar's padding) */
-  #sponsorFoot { margin: 36px 0 0; padding-top: 18px; border-top: 1px solid var(--s48-line); text-align: center; }
-  #sponsorFoot .sp-lead { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--s48-muted); margin-bottom: 12px; }
-  #sponsorFoot .sp-card { border: 1px solid var(--s48-line); }
   .mypick { margin: 12px 0; padding: 14px; border-radius: 12px; background: var(--s48-surface); border: 2px solid var(--s48-good); font-size: 16px; line-height: 1.4; }
 </style>
 </head>
@@ -124,11 +120,6 @@ try {
     <input id="filter" class="filter hidden" type="search" placeholder="Find an idea…" autocomplete="off">
     <ul id="list"></ul>
   </div>
-
-  <footer id="sponsorFoot" class="hidden" aria-label="Sponsors">
-    <div class="sp-lead">Thank you to our sponsors</div>
-    <div id="sponsorLogos"></div>
-  </footer>
 </div>
 
 <div class="bar hidden" id="bar">
@@ -380,13 +371,6 @@ try {
 
   $('filter').oninput = renderList;
   poll();
-
-  // Sponsor logos in a small strip at the bottom; hidden when there are none or they can't be loaded.
-  S48.api('GET', '../api/showcase.php', null, function (err, res) {
-    if (err || !res || !res.sponsors || !res.sponsors.length) { return; }
-    S48.renderSponsors($('sponsorLogos'), res.sponsors, { flat: true, size: 'xs' });
-    $('sponsorFoot').classList.remove('hidden');
-  });
 })();
 </script>
 </body>

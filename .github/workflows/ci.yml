@@ -21,6 +21,9 @@ jobs:
           find event-manager -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
           echo "all PHP files parse"
 
+      - name: API tests
+        run: bash tests/run.sh
+
       - name: Nothing server-only is tracked
         run: |
           if git ls-files | grep -E '^event-manager/(data/|inc/config\.php$)'; then

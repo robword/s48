@@ -23,7 +23,7 @@ php -S localhost:8048 -t event-manager event-manager/bin/dev-router.php
 # http://localhost:8048/admin/
 ```
 
-Run `php -l` on any PHP file you change; CI does the same for every pull request.
+Run `php -l` on any PHP file you change, and `bash tests/run.sh` (API tests against a throwaway local server; needs php-cli with GD). CI does both for every pull request.
 
 ## Sign off your commits (DCO)
 

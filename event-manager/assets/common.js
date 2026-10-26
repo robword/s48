@@ -48,9 +48,9 @@
   /**
    * Sponsors grouped by tier, in the order each tier first appears in the list, with untiered
    * sponsors last. Group size: the first tier is large, the second medium, the rest small. When
-   * there's only one group its size follows how many logos it has. opts.flat: one group, no headings.
+   * there's only one group its size follows how many logos it has.
    */
-  S48.sponsorGroups = function (list, opts) {
+  S48.sponsorGroups = function (list) {
     var order = [], by = {}, none = [];
     (list || []).forEach(function (sp) {
       var t = sp.tier || '';
@@ -60,9 +60,6 @@
     });
     var groups = order.map(function (t) { return { tier: t, items: by[t] }; });
     if (none.length) { groups.push({ tier: '', items: none }); }
-    if ((opts && opts.flat) || !groups.length) {
-      return groups.length ? [{ tier: '', items: list.slice(), size: (opts && opts.size) || 'm' }] : [];
-    }
     if (groups.length === 1) {
       var n = groups[0].items.length;
       groups[0].size = n <= 6 ? 'l' : n <= 14 ? 'm' : 's';
@@ -80,32 +77,31 @@
     return pages;
   };
 
-  /** Fills `box` with logo cards (names alone for sponsors without a logo). */
-  S48.renderSponsors = function (box, list, opts) {
+  /**
+   * Fills `box` with logo cards (names alone for sponsors without a logo), then shrinks them until
+   * the block fits in maxH pixels. The box stays invisible until it fits, so logos never show at
+   * the wrong size. It must be laid out (not display:none). Logo widths change the wrapping, so the
+   * fit waits for them to load (4 s at most).
+   */
+  S48.showSponsors = function (box, list, maxH, done) {
     box.textContent = '';
-    box.className = (box.className.replace(/\bsp\b/g, '') + ' sp').trim();
+    box.classList.add('sp');
+    box.style.visibility = 'hidden';
     box.style.setProperty('--sp-scale', '1');
-    S48.sponsorGroups(list, opts).forEach(function (g) {
+    S48.sponsorGroups(list).forEach(function (g) {
       var gd = document.createElement('div'), row = document.createElement('div');
       gd.className = 'sp-group'; gd.setAttribute('data-size', g.size);
       if (g.tier) { var h = document.createElement('div'); h.className = 'sp-tier'; h.textContent = g.tier; gd.appendChild(h); }
       row.className = 'sp-row';
       g.items.forEach(function (sp) {
         var c = document.createElement('div');
-        c.className = 'sp-card' + (sp.logo_url ? '' : ' txt');
+        c.className = 'sp-card' + (sp.logo_url ? '' : ' txt') + (sp.dark ? ' dark' : '');
         if (sp.logo_url) { var im = document.createElement('img'); im.alt = sp.name; im.src = sp.logo_url; c.appendChild(im); }
         else { c.textContent = sp.name; }
         row.appendChild(c);
       });
       gd.appendChild(row); box.appendChild(gd);
     });
-  };
-
-  /**
-   * Shrinks the cards until the block fits in maxH pixels tall. The box must be on screen
-   * (not display:none). Waits for the logos to load first, since their widths change the wrapping.
-   */
-  S48.fitSponsors = function (box, maxH, done) {
     var imgs = [].slice.call(box.querySelectorAll('img')), left = imgs.length, fired = false;
     function fit() {
       if (fired) { return; } fired = true;
@@ -113,6 +109,7 @@
         box.style.setProperty('--sp-scale', String(Math.round(k * 100) / 100));
         if (box.scrollHeight <= maxH) { break; }
       }
+      box.style.visibility = '';
       if (done) { done(); }
     }
     if (!left) { fit(); return; }
