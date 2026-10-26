@@ -24,6 +24,16 @@ function s48_find_person(array $list, string $id): int
     throw new S48Error('Person not found', 404);
 }
 
+function s48_find_sponsor(array $list, string $id): int
+{
+    foreach ($list as $i => $p) {
+        if ($p['id'] === $id) {
+            return $i;
+        }
+    }
+    throw new S48Error('Sponsor not found', 404);
+}
+
 s48_api(static function () {
     s48_require_admin_api();
 
@@ -32,19 +42,29 @@ s48_api(static function () {
         return;
     }
 
-    // Photos arrive as ~100 KB data URLs; allow room for them.
+    // Photos and logos arrive as data URLs of up to a few hundred KB; allow room for them.
     $body = s48_json_body(2500000);
     $action = (string) ($body['action'] ?? '');
 
     // Store a new photo before taking the lock; it is only referenced if the update succeeds.
     $newPhoto = null;
-    if (!empty($body['photo'])) {
-        $newPhoto = s48_save_photo((string) $body['photo']);
+    $newLogo = null;
+    try {
+        if (!empty($body['photo'])) {
+            $newPhoto = s48_save_photo((string) $body['photo']);
+        }
+        if (!empty($body['logo'])) {
+            $newLogo = s48_save_logo((string) $body['logo']);
+        }
+    } catch (Throwable $e) {
+        s48_delete_photo($newPhoto);
+        throw $e;
     }
     $oldPhotos = [];
+    $oldLogos = [];
 
     try {
-        [$s] = s48_update_showcase(static function (array &$s) use ($action, $body, $newPhoto, &$oldPhotos) {
+        [$s] = s48_update_showcase(static function (array &$s) use ($action, $body, $newPhoto, $newLogo, &$oldPhotos, &$oldLogos) {
             switch ($action) {
                 case 'add':
                     $g = s48_group($body);
@@ -82,6 +102,38 @@ s48_api(static function () {
                     }
                     break;
 
+                case 'sponsor_add':
+                    if (count($s['sponsors']) >= S48_MAX_SPONSORS) {
+                        throw new S48Error('Limit reached (' . S48_MAX_SPONSORS . ')');
+                    }
+                    $s['sponsors'][] = ['id' => s48_new_id(4)] + s48_sponsor_fields($body['fields'] ?? []) + ['logo' => $newLogo];
+                    break;
+
+                case 'sponsor_update':
+                    $i = s48_find_sponsor($s['sponsors'], (string) ($body['id'] ?? ''));
+                    $cur = $s['sponsors'][$i];
+                    $logo = $cur['logo'] ?? null;
+                    if ($newLogo !== null || !empty($body['remove_logo'])) {
+                        $oldLogos[] = $logo;
+                        $logo = $newLogo;
+                    }
+                    $s['sponsors'][$i] = ['id' => $cur['id']] + s48_sponsor_fields($body['fields'] ?? []) + ['logo' => $logo];
+                    break;
+
+                case 'sponsor_delete':
+                    $i = s48_find_sponsor($s['sponsors'], (string) ($body['id'] ?? ''));
+                    $oldLogos[] = $s['sponsors'][$i]['logo'] ?? null;
+                    array_splice($s['sponsors'], $i, 1);
+                    break;
+
+                case 'sponsor_move':
+                    $i = s48_find_sponsor($s['sponsors'], (string) ($body['id'] ?? ''));
+                    $j = $i + ((int) ($body['dir'] ?? 0) < 0 ? -1 : 1);
+                    if ($j >= 0 && $j < count($s['sponsors'])) {
+                        [$s['sponsors'][$i], $s['sponsors'][$j]] = [$s['sponsors'][$j], $s['sponsors'][$i]];
+                    }
+                    break;
+
                 case 'info':
                     $s['info'] = s48_info_fields($body['fields'] ?? [], $s['info']);
                     break;
@@ -92,11 +144,15 @@ s48_api(static function () {
         });
     } catch (Throwable $e) {
         s48_delete_photo($newPhoto); // the update failed, so nothing references it
+        s48_delete_logo($newLogo);
         throw $e;
     }
 
     foreach ($oldPhotos as $p) {
         s48_delete_photo($p);
+    }
+    foreach ($oldLogos as $l) {
+        s48_delete_logo($l);
     }
     s48_json_out(['ok' => true] + s48_public_showcase($s));
 });
