@@ -1,0 +1,211 @@
+name: Preview
+# Every push to a branch other than main runs CI and, when it passes, deploys that branch to
+# its own preview: PREVIEW_URL/<branch>/ (for example https://dev.s48.robword.com/sponsors/),
+# with its own empty data folder and the shared preview operator password. Deleting the branch
+# removes its preview. Production (deploy.yml) is untouched: previews use their own subdomain,
+# environment and deploy key, and that key can only write inside the preview subdomain's folder.
+#
+# Setup (once): the "preview" environment (any branch) holds DEPLOY_HOST, DEPLOY_USER,
+# DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS (and DEPLOY_PORT if not 22), the secret
+# PREVIEW_ADMIN_PASSWORD, and the environment variable PREVIEW_URL, e.g. https://dev.s48.robword.com
+on:
+  push:
+    branches-ignore: [main]
+  delete:                 # a branch was deleted: remove its preview (runs from main's copy of this file)
+  workflow_dispatch:
+    inputs:
+      remove:
+        description: 'Branch name whose preview to remove (deploy: push to the branch instead)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: preview-${{ github.ref_name }}   # one deploy per branch at a time; a newer push waits
+      cancel-in-progress: false
+    environment:
+      name: preview
+      url: ${{ steps.slug.outputs.url }}       # shown on the branch's commits and pull request
+    env:
+      PREVIEW_URL: ${{ vars.PREVIEW_URL }}
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      USER_: ${{ secrets.DEPLOY_USER }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+      BRANCH: ${{ github.ref_name }}
+    steps:
+      - name: Check configuration
+        env:
+          PW: ${{ secrets.PREVIEW_ADMIN_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$HOST" ]  || missing="$missing secret:DEPLOY_HOST"
+          [ -n "$USER_" ] || missing="$missing secret:DEPLOY_USER"
+          [ -n "$PW" ]    || missing="$missing secret:PREVIEW_ADMIN_PASSWORD"
+          [ -n "$PREVIEW_URL" ] || missing="$missing variable:PREVIEW_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set:$missing. They go in Settings > Environments > preview (PREVIEW_URL as an environment variable, e.g. https://dev.s48.robword.com)."
+            exit 1
+          fi
+          case "$PREVIEW_URL" in https://*) ;; *) echo "::error::PREVIEW_URL must start with https://"; exit 1 ;; esac
+          echo "configuration present"
+
+      # The branch name as a folder name: lowercase letters, digits and dashes. When that changes
+      # the name (claude/fix-x -> claude-fix-x-1a2b3c), a short hash keeps two branches apart.
+      - name: Preview folder
+        id: slug
+        run: |
+          set -euo pipefail
+          SLUG="$(printf '%s' "$BRANCH" | tr 'A-Z' 'a-z' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+          if [ "$SLUG" != "$BRANCH" ]; then SLUG="${SLUG:-branch}-$(printf '%s' "$BRANCH" | sha256sum | cut -c1-6)"; fi
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "url=${PREVIEW_URL%/}/$SLUG/" >> "$GITHUB_OUTPUT"
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          echo "SITE=${PREVIEW_URL%/}/$SLUG" >> "$GITHUB_ENV"
+          echo "Preview: ${PREVIEW_URL%/}/$SLUG/"
+
+      # Pinned to a commit SHA, not a tag. Dependabot keeps it current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        env:
+          PW: ${{ secrets.PREVIEW_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p _site && cp -r event-manager/. _site/
+          rm -f _site/README.md _site/.gitignore
+          rm -rf _site/data _site/inc/config.php
+          printf '{"version":"%s","built":"%s","repository":"%s","branch":"%s"}\n' \
+            "$(git rev-parse --short HEAD)" "$(date -u +%Y-%m-%dT%H:%MZ)" "$GITHUB_REPOSITORY" "$BRANCH" > _site/version.json
+          # The preview's own config: the shared preview operator password (hashed here, so the
+          # server never sees it in plain text). Data stays in the preview's own data/ folder.
+          php -r 'echo "<?php\n// Written by preview.yml on every deploy.\nreturn ", var_export(["admin_password_hash" => password_hash(getenv("PW"), PASSWORD_DEFAULT)], true), ";\n";' > _site/inc/config.php
+          # The preview root: no search indexing, no listing, no dotfiles.
+          mkdir -p _root
+          printf 'User-agent: *\nDisallow: /\n' > _root/robots.txt
+          cat > _root/.htaccess <<'HT'
+          # Branch previews (managed by .github/workflows/preview.yml)
+          Options -Indexes
+          <IfModule mod_headers.c>
+            Header always set X-Robots-Tag "noindex, nofollow"
+          </IfModule>
+          <FilesMatch "^\.">
+            Require all denied
+          </FilesMatch>
+          HT
+          printf '<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Branch previews</title><p>Branch previews live at /&lt;branch&gt;/.</p>\n' > _root/index.html
+
+      - name: Refuse to publish secrets
+        run: |
+          grep -rniE 'ghp_[A-Za-z0-9]{20,}|github_pat_|BEGIN [A-Z ]*PRIVATE KEY' _site _root \
+            && { echo "possible secret"; exit 1; } || echo clean
+
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KNOWN:-}" ]; then
+            echo "::error::DEPLOY_KNOWN_HOSTS is not set. Refusing to trust an unknown host key."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          echo "RSH=ssh -i $HOME/.ssh/deploy_key -p ${PORT:-22} -o IdentitiesOnly=yes -o BatchMode=yes" >> "$GITHUB_ENV"
+
+      - name: Guard
+        run: |
+          # The marker the setup script puts at the preview subdomain's root (the key's restricted root).
+          rsync --list-only -e "$RSH" "${USER_}@${HOST}:.deploy-target" > /dev/null \
+            || { echo "::error::No .deploy-target at the key's restricted root. Nothing changed."; exit 1; }
+
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          FLAGS="-rlz --checksum --omit-dir-times --no-perms --no-owner --no-group"
+          # Root files: added or updated, nothing else at the root is touched.
+          rsync $FLAGS -e "$RSH" _root/ "${USER_}@${HOST}:./"
+          # This branch's folder mirrors the build; its data/ (votes, logos, login throttle) is kept.
+          rsync $FLAGS -v --delete --exclude=/data/ -e "$RSH" _site/ "${USER_}@${HOST}:./$SLUG/"
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          sleep 3
+          EXPECTED="$(git rev-parse --short HEAD)"
+          LIVE="$(curl -fsSL -H 'Cache-Control: no-cache' "${SITE}/version.json?t=${GITHUB_RUN_ID}" | jq -r .version)"
+          [ "$LIVE" = "$EXPECTED" ] || { echo "::error::live is $LIVE, expected $EXPECTED"; exit 1; }
+          echo "live at ${SITE}/"
+
+      - name: Verify protected paths
+        run: |
+          set -euo pipefail
+          # As in deploy.yml, plus the preview's config (it holds the password hash). 403 or 404 is fine.
+          FAIL=0
+          for p in data/ data/admin.json data/state.json inc/ inc/config.php inc/bootstrap.php bin/set-password.php; do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "${SITE}/${p}")"
+            echo "${p} -> ${CODE}"
+            case "$CODE" in 403|404) ;; *) echo "::error::${SITE}/${p} returned ${CODE}"; FAIL=1 ;; esac
+          done
+          CODE="$(curl -s -o /dev/null -w '%{http_code}' "${PREVIEW_URL%/}/.deploy-target")"
+          echo ".deploy-target (root) -> ${CODE}"
+          case "$CODE" in 403|404) ;; *) echo "::error::the root .deploy-target returned ${CODE}"; FAIL=1 ;; esac
+          exit "$FAIL"
+
+  remove:
+    if: (github.event_name == 'delete' && github.event.ref_type == 'branch') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: preview
+    env:
+      HOST: ${{ secrets.DEPLOY_HOST }}
+      USER_: ${{ secrets.DEPLOY_USER }}
+      PORT: ${{ secrets.DEPLOY_PORT }}
+      BRANCH: ${{ github.event_name == 'delete' && github.event.ref || inputs.remove }}
+    steps:
+      - name: Preview folder
+        run: |
+          set -euo pipefail
+          [ "$BRANCH" != main ] || { echo "::error::main has no preview"; exit 1; }
+          SLUG="$(printf '%s' "$BRANCH" | tr 'A-Z' 'a-z' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+          if [ "$SLUG" != "$BRANCH" ]; then SLUG="${SLUG:-branch}-$(printf '%s' "$BRANCH" | sha256sum | cut -c1-6)"; fi
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          echo "Removing preview folder /$SLUG/ for branch $BRANCH"
+
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [ -n "${KNOWN:-}" ] || { echo "::error::DEPLOY_KNOWN_HOSTS is not set."; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          echo "RSH=ssh -i $HOME/.ssh/deploy_key -p ${PORT:-22} -o IdentitiesOnly=yes -o BatchMode=yes" >> "$GITHUB_ENV"
+
+      - name: Remove
+        run: |
+          set -euo pipefail
+          rsync --list-only -e "$RSH" "${USER_}@${HOST}:.deploy-target" > /dev/null \
+            || { echo "::error::No .deploy-target at the key's restricted root. Nothing changed."; exit 1; }
+          if ! rsync --list-only -e "$RSH" "${USER_}@${HOST}:./$SLUG/" > /dev/null 2>&1; then
+            echo "No preview at /$SLUG/; nothing to remove."; exit 0
+          fi
+          # Sync an empty folder over the root with only this branch's folder in scope: rsync deletes
+          # that folder and everything in it, and the filter protects everything else at the root.
+          mkdir -p empty
+          rsync -rv --delete --include="/$SLUG/***" --exclude='*' -e "$RSH" empty/ "${USER_}@${HOST}:./"

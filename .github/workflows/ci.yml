@@ -3,6 +3,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_call:    # other branches: run from preview.yml, before their preview deploys
 
 permissions:
   contents: read

@@ -17,6 +17,9 @@ Thanks for helping make event nights run smoother. Issues and pull requests are 
 
 ## Try it locally
 
+Or push a branch: every push to a branch other than `main` runs CI, and a branch that passes gets its own
+preview site (see "Branch previews" in `event-manager/README.md`).
+
 ```sh
 php event-manager/bin/set-password.php 'devpassword'
 php -S localhost:8048 -t event-manager event-manager/bin/dev-router.php

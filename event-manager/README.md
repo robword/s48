@@ -206,6 +206,26 @@ shared hosting) install it in `authorized_keys` as
 `--delete` keeps the folder an exact copy of this one, **except** `data/` and `inc/config.php`.
 Protect `main` (require review) and limit the secrets to an environment: whoever can merge to `main` can deploy.
 
+### Branch previews (optional)
+
+`.github/workflows/preview.yml` gives every branch other than `main` its own copy of the app: each push runs CI, and when that
+passes it deploys the branch to `PREVIEW_URL/<branch>/` (for example `https://dev.s48.robword.com/sponsors/`). Deleting the branch
+removes its preview; **Actions > Preview > Run workflow** removes one by branch name.
+
+- **Kept apart from production:** previews live on their own subdomain with their own `preview` environment and deploy key, and
+  that key can only write inside the preview subdomain's folder. They never share the production site's origin or login cookie.
+- **Each preview has its own empty `data/`** (votes, people, logos), kept between pushes to that branch. Load an event file to fill it.
+- **Operator login:** one shared preview password (the `PREVIEW_ADMIN_PASSWORD` secret), written into each preview's
+  `inc/config.php` as a hash at deploy time. It's separate from production's password.
+- **Not indexed:** the preview root serves `robots.txt` and an `X-Robots-Tag: noindex` header; previews are otherwise public, like production.
+- **Folder names:** the branch name in lowercase letters, digits and dashes; when that changes the name, a short hash is added
+  (`claude/fix-x` becomes `claude-fix-x-1a2b3c`). The run's summary and the pull request show the link.
+
+Setup, once: add the subdomain in the DreamHost panel (with HTTPS) under the same or another shell user, then run the setup script's
+preview variant. It creates the `preview` environment (any branch), the deploy secrets, `PREVIEW_ADMIN_PASSWORD` and the environment
+variable `PREVIEW_URL`. Its key has its own name, so it doesn't replace the production key. Cleanup on branch delete only works once
+`preview.yml` is on `main`, because GitHub runs that event from the default branch.
+
 ## Local development
 
 From the repository root:
