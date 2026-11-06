@@ -916,7 +916,11 @@ $csrf = s48_csrf_token();
   $('p-mentoring').onchange = showFields;
   function closeEditor() { $('personModal').hidden = true; edit = null; }
   $('pmCancel').onclick = closeEditor;
-  $('personModal').addEventListener('click', function (e) { if (e.target === this) { closeEditor(); } });
+  // Close on a backdrop click only when the press also started on the backdrop. Chrome fires "click" on the
+  // backdrop when a drag (text selection, zoom slider, headshot) starts inside the card and ends outside it.
+  var downOnBackdrop = false;
+  $('personModal').addEventListener('mousedown', function (e) { downOnBackdrop = e.target === this; });
+  $('personModal').addEventListener('click', function (e) { if (e.target === this && downOnBackdrop) { closeEditor(); } downOnBackdrop = false; });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('personModal').hidden) { closeEditor(); } });
   $('p-name').addEventListener('input', function () { if (!crop.img) { redraw(); } });
   $('pmDelete').onclick = function () {
